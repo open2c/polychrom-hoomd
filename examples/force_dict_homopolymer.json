@@ -1,0 +1,36 @@
+{
+    "Angular forces": {
+        "Bend": {
+            "Stiffness": 1.5,
+            "Type": "KG"
+        }
+    },
+    "Bonded forces": {
+        "Backbone": {
+            "Rest length": 1.0,
+            "Type": "Harmonic",
+            "Wiggle distance": 0.1
+        }
+    },
+    "External forces": {
+        "Confinement": {
+            "Type": "Spherical"
+        }
+    },
+    "Non-bonded forces": {
+        "Repulsion": {
+            "Cutoff": 1.0,
+            "Matrix": {
+                "A": {
+                    "A": 10.0,
+                    "B": 10.0
+                },
+                "B": {
+                    "A": 10.0,
+                    "B": 10.0
+                }
+            },
+            "Type": "DPD"
+        }
+    }
+}
