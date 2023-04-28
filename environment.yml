@@ -8,9 +8,11 @@ dependencies:
     - scipy>=0.16
     - matplotlib>=2.0
     - pandas>=0.19
-    - hoomd<=2.7
-    - fresnel<=0.12
+    - hoomd>=3.0
+    - fresnel>=0.13
+    - gsd>=2.8
     - pip:
+        - tornado==6.0.0
         - ipython
         - joblib
         - notebook

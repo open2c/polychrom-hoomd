@@ -1,6 +1,6 @@
 # polychrom-hoomd
 
-[**HOOMD-blue**](https://hoomd-blue.readthedocs.io/en/v2.7.0/)-based package for coarse-grained polymer and chromosome simulations.
+[**HOOMD-blue**](https://hoomd-blue.readthedocs.io/en/v3.11.0/)-based package for coarse-grained polymer and chromosome simulations.
 
 ## Installation 
 

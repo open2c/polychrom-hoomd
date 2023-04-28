@@ -1,84 +1,70 @@
-import hoomd
+import gsd.hoomd
 import numpy as np
-
-from polykit.generators.initial_conformations import grow_cubic
     
     
-def set_init_snapshot(n_beads, n_repeats, density, **build_dict):
+def get_simulation_box(box_length, pad=0):
     """Setup simulation box and initial chromatin state"""
-
-    n_tot = n_beads*n_repeats
     
-    exclusion_params = build_dict['Non-bonded forces']['Repulsion']
-    confinement_params = build_dict['External forces']['Confinement']
+    snap = gsd.hoomd.Frame()
     
-    ptypes = exclusion_params['Matrix'].keys()
-    
-    if confinement_params['Type'] == "Spherical":
-        L = 4 * (3*n_tot/(4*np.pi*density))**(1/3.)
-    else:
-        L = (n_tot/density) ** (1/3.)
-        
-    snap = hoomd.data.make_snapshot(N=n_tot,
-                                    box=hoomd.data.boxdim(L=L, dimensions=3),
-                                    particle_types=list(ptypes))
-
-    chrom = build_chromosomes(n_tot, L, **build_dict)
-    chrom -= chrom.mean(axis=0, keepdims=True)
-
-    for i in range(n_tot):
-        snap.particles.position[i] = chrom[i]
-        snap.particles.diameter[i] = exclusion_params['Cutoff']
-
-    build_topology(snap, n_beads, n_repeats, **build_dict)
+    snap.configuration.dimensions = 3
+    snap.configuration.box = [box_length*(1+pad)]*3 + [0]*3
     
     return snap
-                
+    
 
-def build_chromosomes(n_tot, L, mode_init, pad=2, **build_dict):
-    """Wrapper for chromosome initial conformation generators"""
-
-    if mode_init == "cubic":
-        chrom = grow_cubic(n_tot, int(L - pad))
-    else:
-        raise NotImplementedError("Unsupported initial configuration mode '%s'" % mode_init)
+def set_chains(snap, monomer_positions, chromosome_sizes,
+               monomer_type_list=['A', 'B'],
+               bond_type_list=['Backbone'],
+               angle_type_list=['Curvature'],
+               center=True):
+    """Set chromosome conformations and topology"""
+    
+    number_of_monomers = monomer_positions.shape[0]
+    monomer_positions = monomer_positions.astype(np.float32)
+    
+    if center:
+        monomer_positions -= monomer_positions.mean(axis=0, keepdims=True)
+                        
+    snap.particles.N = number_of_monomers
+    snap.particles.types = monomer_type_list
         
-    return chrom.astype(np.float32)
+    snap.particles.position = monomer_positions
+    
+    snap.particles.typeid = np.zeros(number_of_monomers)
+    snap.particles.diameter = np.ones(number_of_monomers)
+    
+    set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_list)
+    
+    snap.validate()
     
     
-def build_topology(snap, n_beads, n_repeats, split_chrom=False, **build_dict):
-    """Build membrane/chromosome topology"""
+def set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_list):
+    """Set backbone bonds/angles"""
 
-    btypes = build_dict['Bonded forces'].keys()
-    atypes = build_dict['Angular forces'].keys()
-    
-    snap.bonds.types = list(btypes)
-    snap.angles.types = list(atypes)
+    chromosome_ends = np.cumsum(chromosome_sizes)
+    monomer_ids = np.arange(chromosome_ends[-1])
 
-    ids = np.arange(n_beads*n_repeats)
-    
-    bonds = list(zip(ids[:-1], ids[1:]))
-    angles = list(zip(ids[:-2], ids[1:-1], ids[2:]))
+    bonds = list(zip(monomer_ids[:-1], monomer_ids[1:]))
+    angles = list(zip(monomer_ids[:-2], monomer_ids[1:-1], monomer_ids[2:]))
+        
+    snap.bonds.types = bond_type_list
+    snap.angles.types = angle_type_list
 
-    if split_chrom:
-        chrom_ends = np.arange(1, n_repeats) * n_beads
+    for end in chromosome_ends[::-1][1:]:
+        bonds.pop(end-1)
+        
+        angles.pop(end-1)
+        angles.pop(end-2)
 
-        for e in chrom_ends[::-1]:
-            bonds.pop(e-1)
-            
-            angles.pop(e-1)
-            angles.pop(e-2)
+    number_of_bonds = len(bonds)
+    number_of_angles = len(angles)
 
-    n_bonds = len(bonds)
-    n_angles = len(angles)
+    snap.bonds.N = number_of_bonds
+    snap.angles.N = number_of_angles
 
-    snap.bonds.resize(n_bonds)
-    snap.angles.resize(n_angles)
+    snap.bonds.group = bonds
+    snap.bonds.typeid = np.zeros(number_of_bonds)
 
-    for k, bond in enumerate(bonds):
-        snap.bonds.group[k] = bond
-        snap.bonds.typeid[k] = 0
-
-    for l, angle in enumerate(angles):
-        snap.angles.group[l] = angle
-        snap.angles.typeid[l] = 0
+    snap.angles.group = angles
+    snap.angles.typeid = np.zeros(number_of_angles)

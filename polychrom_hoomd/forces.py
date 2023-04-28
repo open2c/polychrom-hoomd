@@ -1,167 +1,215 @@
 import numpy as np
-from hoomd import md
-
-
-def kg_func(theta, kappa):
-    """Kremer-Grest bending energy penalty function"""
-
-    V = kappa * (1. + np.cos(theta))
-    T = kappa * np.sin(theta)
-
-    return V, T
+from hoomd import md, wall
     
-    
-def poly_func(r, rmin, rmax, epsilon):
-    """Polychrom soft-core repulsion"""
 
-    term = (r* np.sqrt(6/7)) / rmax
-    
-    V = epsilon * (1 + (term**12) * (term**2 - 1) * (823543./46656.))
-    F = -epsilon * (12.0*r**13/rmax**14 + 84.0*r**11*(0.857142857142857*r**2/rmax**2 - 1)/rmax**12)
-    
-    return V, F
-
-
-def DPD_func(r, rmin, rmax, epsilon):
+def DPD_func(cutoff, epsilon, width=1000):
     """DPD soft-core repulsion"""
     
-    V = epsilon * rmax * (1. - r/rmax)**2
-    F = epsilon * (1. - r/rmax)
-    
-    return V, F
-    
-    
-def CSW_func(r, rmin, rmax, epsilon, rcut, n=2500, m=2500):
-    """Continuous square-well potential (see https://doi.org/10.1080/00268976.2018.1481232)"""
-    
-    term = np.exp(-m*(r-rmin)*(r-rcut))
-    
-    V = epsilon/2. * ((rmin/r)**n + (1.-term)/(1.+term) - 1)
-    F = epsilon * (n/2.*(rmin/r)**(n+1) - m*(2*r-rcut-rmin)*term/(1.+term)**2)
-    
-    return V, F
+    r = np.linspace(0, cutoff, width, endpoint=False)
 
-
-def set_excluded_volume(nlist, mode_integ, seed=0, width=1000, **force_dict):
-    """Set (soft) excluded-volume repulsion based on choice of thermostat"""
-
-    force_params = force_dict['Non-bonded forces']['Repulsion']
-    cutoff = force_params['Cutoff']
+    U = epsilon * cutoff * (1. - r/cutoff)**2
+    F = epsilon * (1. - r/cutoff)
     
-    if mode_integ == "Langevin":
-        excluded_force = md.pair.table(width=width, nlist=nlist, name="excluded")
+    return U, F
+    
+    
+def poly_func(cutoff, epsilon, width=1000):
+    """Polychrom soft-core repulsion"""
+
+    r = np.linspace(0, cutoff, width, endpoint=False)
+    r_resc = r/cutoff * np.sqrt(6/7)
+
+    U = epsilon * (1 + r_resc**12 * (r_resc**2 - 1) * (823543./46656.))
+    F = epsilon * r**11 * 84 * (cutoff**2 - r**2) / cutoff**14
+    
+    return U, F
+    
+
+def PSW_func(r_min, r_max, epsilon, width=1000):
+    """Polychrom pseudo-square-well attraction"""
+
+    r = np.linspace(r_min, r_max, width, endpoint=False)
+    
+    delta = (r_max-r_min) / 2.
+    r_shift = (r-r_min-delta) / delta * np.sqrt(6/7.)
+    
+    U = -epsilon * (1 + r_shift**12 * (r_shift**2-1) * (823543. / 46656.))
+    F = epsilon*(r_max + r_min - 2*r)**11  \
+            * (168*(r_max - r_min)**2 - 120*(r_max + r_min - 2*r)**2)  \
+            / (r_max - r_min)**14
+    
+    return U, F
+    
+    
+def kg_func(kappa, width=1000):
+    """Kremer-Grest bending energy penalty function"""
+
+    theta = np.linspace(0, np.pi, width, endpoint=True)
+
+    U = kappa * (1. + np.cos(theta))
+    tau = kappa * np.sin(theta)
+
+    return U, tau
+
+    
+def get_repulsion_forces(nlist, **force_dict):
+    """Setup (soft) excluded-volume repulsion based on choice of thermostat"""
+
+    force = force_dict['Non-bonded forces']['Repulsion']
+    cutoff = force['Cutoff']
+    
+    repulsion_force = md.pair.Table(nlist=nlist, default_r_cut=cutoff)
         
-        for t1 in force_params['Matrix']:
-            for t2 in force_params['Matrix'][t1]:
-                epsilon = force_params['Matrix'][t1][t2]
-                excluded_force.pair_coeff.set(t1, t2,
-                                              func=DPD_func if force_params['Type'] == "DPD" else poly_func,
-                                              rmin=0., rmax=cutoff,
-                                              coeff=dict(epsilon=epsilon))
-                                 
-    elif mode_integ == "DPD":
-        excluded_force = md.pair.dpd(nlist=nlist, kT=1.0, r_cut=cutoff, seed=seed)
-        
-        for t1 in force_params['Matrix']:
-            for t2 in force_params['Matrix'][t1]:
-                epsilon = force_params['Matrix'][t1][t2]
-                excluded_force.pair_coeff.set(t1, t2, A=epsilon, gamma=1)
+    for t1 in force['Matrix']:
+        for t2 in force['Matrix'][t1]:
+            epsilon = force['Matrix'][t1][t2]
                 
-    else:
-        raise NotImplementedError("Unsupported integration type: %s" % mode_integ)
-                                
-    return excluded_force
+            if force['Type'] == "DPD":
+                U, F = DPD_func(cutoff, epsilon)
+                
+            elif force['Type'] == "Polychrom":
+                U, F = poly_func(cutoff, epsilon)
+                
+            else:
+                raise NotImplementedError("Unsupported repulsion force: %s" % force['Type'])
+                    
+            repulsion_force.params[(t1, t2)] = dict(r_min=0, U=U, F=F)
+                                 
+    return [repulsion_force]
+    
+
+def get_attraction_forces(nlist, **force_dict):
+    """Setup type-dependent attraction potentials"""
+
+    force = force_dict['Non-bonded forces']['Attraction']
+    cutoff = force['Cutoff']
+    
+    repulsion_force = force_dict['Non-bonded forces']['Repulsion']
+    repulsion_cutoff = repulsion_force['Cutoff']
+    
+    assert cutoff > repulsion_cutoff
+
+    attraction_force = md.pair.Table(nlist=nlist, default_r_cut=cutoff)
+
+    for t1 in force['Matrix']:
+        for t2 in force['Matrix'][t1]:
+            epsilon = force['Matrix'][t1][t2]
+            
+            if force['Type'] == "Polychrom":
+                U, F = PSW_func(r_min=repulsion_cutoff, r_max=cutoff, epsilon=epsilon)
+                attraction_force.params[(t1, t2)] = dict(r_min=repulsion_cutoff, U=U, F=F)
+                    
+            else:
+                raise NotImplementedError("Unsupported attraction force: %s" % force['Type'])
+            
+    return [attraction_force]
 
 
-def set_specific_attraction(nlist, pad=1e-2, width=1000, **force_dict):
-    """Set type-dependent attraction potentials"""
+def get_dpd_forces(nlist, **force_dict):
+    """Setup DPD pairwise conservative/dissipative/random forces"""
 
-    force_params = force_dict['Non-bonded forces']['Attraction']
-    cutoff = force_params['Cutoff']
+    force = force_dict['Non-bonded forces']['Repulsion']
+    cutoff = force['Cutoff']
+                        
+    attraction_force = force_dict['Non-bonded forces'].get('Attraction')
 
-    if force_params['Type'] == "PSW":
-        specific_force = md.pair.table(width=width, nlist=nlist, name="specific")
+    if attraction_force:
+        cutoff = attraction_force['Cutoff']
+
+    dpd_force = md.pair.DPD(nlist=nlist, kT=1.0, default_r_cut=cutoff)
+
+    for t1 in force['Matrix']:
+        for t2 in force['Matrix'][t1]:
+            if (force['Type'] == "DPD") & (not attraction_force):
+                epsilon = force['Matrix'][t1][t2]
+                dpd_force.params[(t1, t2)] = dict(A=epsilon, gamma=1)
+                
+            else:
+                dpd_force.params[(t1, t2)] = dict(A=0, gamma=1)
+                                            
+    return [dpd_force]
+    
+
+def get_bonded_forces(**force_dict):
+    """Setup bonded potentials for both polymer backbone and LEF anchors"""
+
+    bonded_forces = []
+    
+    force_list = force_dict['Bonded forces']
+    force_types = set(force['Type'] for force in force_list.values())
+    
+    for force_type in force_types:
+        if force_type == "Harmonic":
+            harmonic_force = md.bond.Harmonic()
+            
+            for bond_type, force in force_list.items():
+                if force['Type'] == "Harmonic":
+                    r0 = force['Rest length']
+                    k_stretch = 1./force['Wiggle distance']**2
+
+                    harmonic_force.params[bond_type] = dict(k=k_stretch, r0=r0)
+                    
+                else:
+                    harmonic_force.params[bond_type] = dict(k=0, r0=0)
+            
+            bonded_forces.append(harmonic_force)
+            
+        else:
+            raise NotImplementedError("Unsupported bonded force: %s" % force_type)
+    
+    return bonded_forces
+
+
+def get_angular_forces(width=1000, **force_dict):
+    """Setup backbone bending potentials"""
+
+    angular_forces = []
+    
+    force_list = force_dict['Angular forces']
+    force_types = set(force['Type'] for force in force_list.values())
+    
+    for force_type in force_types:
+        if force_type == "KG":
+            kg_force = md.angle.Table(width=width)
+
+            for angle_type, force in force_list.items():
+                if force['Type'] == "KG":
+                    kappa = force['Stiffness']
+                    U, tau = kg_func(kappa, width=width)
+
+                    kg_force.params[angle_type] = dict(U=U, tau=tau)
+                    
+                else:
+                    kg_force.params[angle_type] = dict(U=[0], tau=[0])
+                    
+            angular_forces.append(kg_force)
+                    
+        else:
+            raise NotImplementedError("Unsupported angular force: %s" % force_type)
         
-        for t1 in force_params['Matrix']:
-            for t2 in force_params['Matrix'][t1]:
-                epsilon = force_params['Matrix'][t1][t2]
-                specific_force.pair_coeff.set(t1, t2,
-                                              func=CSW_func,
-                                              rmin=min(1+pad, cutoff) if epsilon > 0 else pad,
-                                              rmax=cutoff+pad if epsilon > 0 else 2*pad,
-                                              coeff=dict(epsilon=epsilon, rcut=cutoff))
-    
-    else:
-        raise NotImplementedError("Unsupported attraction type: %s" % force_params['Type'])
-    
-    return specific_force
-    
+    return angular_forces
 
-def set_bonds(**force_dict):
-    """Set bond potentials for both polymer backbone and LEF anchors"""
 
-    force_params = force_dict['Bonded forces']
+def get_confinement_forces(**force_dict):
+    """Setup confinement fields with (pseudo) hard-body repulsion"""
     
-    types = [params["Type"] for params in force_params.values()]
-    btype = types[0]
+    walls = []
     
-    assert (all(t == btype for t in types))
+    force_list = force_dict['External forces']['Confinement']
+    repulsion_force = force_dict['Non-bonded forces']['Repulsion']
+    
+    cutoff = repulsion_force['Cutoff']
 
-    if btype == "Harmonic":
-        bond_force = md.bond.harmonic()
+    for confinement_type, force in force_list.items():
+        if confinement_type == "Spherical":
+            walls.append(wall.Sphere(radius=force['R']))
 
-        for bond, params in force_params.items():
-            r0 = params['Rest length']
-            k_stretch = 1./params['Wiggle distance']**2
+        else:
+            raise NotImplementedError("Unsupported confinement type: %s" % confinement_type)
 
-            bond_force.bond_coeff.set(bond, k=k_stretch, r0=r0)
+    wall_force = md.external.wall.ForceShiftedLJ(walls=walls)
         
-    else:
-        raise NotImplementedError("Unsupported bond type: %s" % force_params['Type'])
+    for t in repulsion_force['Matrix']:
+        wall_force.params[t] = dict(epsilon=1.0, sigma=cutoff, r_cut=2**(1/6.) * cutoff)
     
-    return bond_force
-
-
-def set_angles(width=1000, **force_dict):
-    """Set backbone bending potentials"""
-
-    force_params = force_dict['Angular forces']
-    
-    types = [params["Type"] for params in force_params.values()]
-    atype = types[0]
-    
-    assert (all(t == atype for t in types))
-    
-    if atype == "KG":
-        angle_force = md.angle.table(width=width)
-
-        for angle, params in force_params.items():
-            kappa = params['Stiffness']
-            angle_force.angle_coeff.set(angle, func=kg_func, coeff=dict(kappa=kappa))
-    
-    else:
-        raise NotImplementedError("Unsupported angle type: %s" % force_params['Type'])
-        
-    return angle_force
-
-
-def set_confinement(R, **force_dict):
-    """Set rigid container with (pseudo) hard-body repulsion"""
-    
-    force_params = force_dict['External forces']['Confinement']
-    exclusion_params = force_dict['Non-bonded forces']['Repulsion']
-
-    wallstructure = md.wall.group()
-    cutoff = exclusion_params['Cutoff']
-
-    if force_params['Type'] == "Spherical":
-        wallstructure.add_sphere(r=R, origin=(0, 0, 0), inside=True)
-    else:
-        raise NotImplementedError("Unsupported confinement type: %s" % force_params['Type'])
-
-    wall_force = md.wall.slj(wallstructure, r_cut=2**(1/6.) * cutoff)
-    
-    for t1 in exclusion_params['Matrix']:
-        wall_force.force_coeff.set(t1, epsilon=1.0, sigma=cutoff)
-    
-    return wall_force
+    return [wall_force]

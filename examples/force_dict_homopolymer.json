@@ -1,6 +1,6 @@
 {
     "Angular forces": {
-        "Bend": {
+        "Curvature": {
             "Stiffness": 1.5,
             "Type": "KG"
         }
@@ -13,24 +13,22 @@
         }
     },
     "External forces": {
-        "Confinement": {
-            "Type": "Spherical"
-        }
+        "Confinement": {}
     },
     "Non-bonded forces": {
         "Repulsion": {
             "Cutoff": 1.0,
             "Matrix": {
                 "A": {
-                    "A": 10.0,
-                    "B": 10.0
+                    "A": 5.0,
+                    "B": 5.0
                 },
                 "B": {
-                    "A": 10.0,
-                    "B": 10.0
+                    "A": 5.0,
+                    "B": 5.0
                 }
             },
-            "Type": "DPD"
+            "Type": "Polychrom"
         }
     }
 }
