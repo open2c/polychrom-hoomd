@@ -1,7 +1,24 @@
+import hoomd
 import gsd.hoomd
+
 import numpy as np
     
+
+def get_hoomd_device(notice_level=3):
+    """Initialise HOOMD on the CPU or GPU, based on availability"""
     
+    try:
+        device = hoomd.device.GPU(notice_level=notice_level)
+        print("HOOMD is running on the following GPU(s):\n"
+              "\n".join(device.get_available_devices()))
+        
+    except RuntimeError:
+        device = hoomd.device.CPU(notice_level=notice_level)
+        print("HOOMD is running on the CPU")
+        
+    return device
+
+
 def get_simulation_box(box_length, pad=0):
     """Setup simulation box and initial chromatin state"""
     

@@ -3,8 +3,7 @@ numpy>=1.9
 scipy>=0.16
 pandas>=0.19
 matplotlib>=2.0
-tornado==6.0.0
+cython
 joblib
 ipython
 notebook
-git+https://github.com/open2c/polykit.git
