@@ -109,8 +109,8 @@ def _get_chrom_bounds(snap):
 
     backbone_bonds = snap.bonds.group[snap.bonds.typeid == 0]
 
-    chrom_ends, = np.nonzero(backbone_bonds[1:,0] != backbone_bonds[:-1,1])
-    chrom_list = np.split(backbone_bonds, chrom_ends+1)
+    bond_breaks, = np.nonzero(backbone_bonds[1:,0] != backbone_bonds[:-1,1])
+    chrom_list = np.split(backbone_bonds, bond_breaks+1)
     
     chrom_bounds = np.zeros((len(chrom_list), 2), dtype=np.int32)
     

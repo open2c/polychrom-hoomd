@@ -48,13 +48,11 @@ def set_chains(snap, monomer_positions, chromosome_sizes,
         
     snap.particles.position = monomer_positions
     
-    snap.particles.typeid = np.zeros(number_of_monomers)
-    snap.particles.diameter = np.ones(number_of_monomers)
+    snap.particles.typeid = np.zeros(number_of_monomers, dtype=np.int32)
+    snap.particles.diameter = np.ones(number_of_monomers, dtype=np.float32)
     
     set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_list)
-    
-    snap.validate()
-    
+        
     
 def set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_list):
     """Set backbone bonds/angles"""
@@ -80,8 +78,35 @@ def set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_lis
     snap.bonds.N = number_of_bonds
     snap.angles.N = number_of_angles
 
-    snap.bonds.group = bonds
-    snap.bonds.typeid = np.zeros(number_of_bonds)
+    snap.bonds.group = np.asarray(bonds, dtype=np.int32)
+    snap.bonds.typeid = np.zeros(number_of_bonds, dtype=np.int32)
 
-    snap.angles.group = angles
-    snap.angles.typeid = np.zeros(number_of_angles)
+    snap.angles.group = np.asarray(angles, dtype=np.int32)
+    snap.angles.typeid = np.zeros(number_of_angles, dtype=np.int32)
+
+
+def set_binders(snap, binder_positions,
+                binder_type_list=['Binders']):
+    """Set initial binder configuration"""
+    
+    number_of_binders = binder_positions.shape[0]
+    binder_positions = binder_positions.astype(np.float32)
+    
+    number_of_particles = number_of_binders + snap.particles.N
+            
+    positions = np.zeros((number_of_particles, 3), dtype=np.float32)
+    typeids = np.zeros(number_of_particles, dtype=np.int32)
+    
+    positions[:snap.particles.N] = snap.particles.position
+    positions[snap.particles.N:] = binder_positions
+
+    typeids[:snap.particles.N] = snap.particles.typeid
+    typeids[snap.particles.N:] = len(snap.particles.types)
+
+    snap.particles.N = number_of_particles
+    snap.particles.types.extend(binder_type_list)
+        
+    snap.particles.position = positions
+    snap.particles.typeid = typeids
+
+    snap.particles.diameter = np.ones(number_of_particles, dtype=np.float32)
