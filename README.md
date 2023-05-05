@@ -18,4 +18,4 @@ python3 setup.py install
 
 ## Usage
 
-See the attached `examples/tutorial.ipynb` Jupyter notebook.
+See the attached Jupyter notebook tutorials within the `examples` directory.
