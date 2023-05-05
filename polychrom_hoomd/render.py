@@ -95,7 +95,7 @@ def fresnel(snap,
     else:
         colorscale = np.arange(snap.particles.N)
     
-    diameters[snap.bonds.typeid == 0] *= rescale_bonds
+    diameters[snap.bonds.typeid == 0] *= rescale_backbone_bonds
     
     colors = get_cmap(cmap)(Normalize()(colorscale))[:,:3]
 
