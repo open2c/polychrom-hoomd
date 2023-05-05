@@ -92,6 +92,9 @@ def set_binders(snap, binder_positions,
     number_of_binders = binder_positions.shape[0]
     binder_positions = binder_positions.astype(np.float32)
     
+    if snap.particles.N == 0:
+        raise RuntimeError("Cannot assign binders before chromosomes")
+    
     number_of_particles = number_of_binders + snap.particles.N
             
     positions = np.zeros((number_of_particles, 3), dtype=np.float32)

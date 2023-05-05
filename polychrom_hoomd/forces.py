@@ -1,4 +1,5 @@
 import numpy as np
+
 from hoomd import md, wall
     
 
@@ -110,22 +111,26 @@ def get_dpd_forces(nlist, **force_dict):
 
     force = force_dict['Non-bonded forces']['Repulsion']
     cutoff = force['Cutoff']
-                        
-    attraction_force = force_dict['Non-bonded forces'].get('Attraction')
-
-    if attraction_force:
-        cutoff = attraction_force['Cutoff']
+        
+    for _force in force_dict['Non-bonded forces'].values():
+        if cutoff < _force['Cutoff']:
+            cutoff = _force['Cutoff']
+            
+    mode_thermo = (force['Type'] != "DPD") | (cutoff != force['Cutoff'])
+    
+    if mode_thermo:
+        print("Setting up DPD with the conservative force contribution disabled")
 
     dpd_force = md.pair.DPD(nlist=nlist, kT=1.0, default_r_cut=cutoff)
 
     for t1 in force['Matrix']:
         for t2 in force['Matrix'][t1]:
-            if (force['Type'] == "DPD") & (not attraction_force):
-                epsilon = force['Matrix'][t1][t2]
-                dpd_force.params[(t1, t2)] = dict(A=epsilon, gamma=1)
+            if mode_thermo:
+                dpd_force.params[(t1, t2)] = dict(A=0, gamma=1)
                 
             else:
-                dpd_force.params[(t1, t2)] = dict(A=0, gamma=1)
+                epsilon = force['Matrix'][t1][t2]
+                dpd_force.params[(t1, t2)] = dict(A=epsilon, gamma=1)
                                             
     return [dpd_force]
     
