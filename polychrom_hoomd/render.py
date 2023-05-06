@@ -46,6 +46,7 @@ def domain_viewer(snap,
         
         try:
             plt.register_cmap(name=map_name, cmap=map)
+            
         except ValueError:
             pass
             
@@ -71,10 +72,11 @@ def fresnel(snap,
     """
 
     bonds = snap.bonds.group.copy()
-    
     positions = snap.particles.position.copy()
-    diameters = snap.particles.diameter[bonds].mean(axis=1)
     
+    radii = snap.particles.diameter.copy() * 0.5
+    radii[bonds[snap.bonds.typeid==0]] *= rescale_backbone_bonds
+
     colorscale = np.zeros(snap.particles.N)
 
     if show_chromosomes:
@@ -95,11 +97,9 @@ def fresnel(snap,
     else:
         colorscale = np.arange(snap.particles.N)
     
-    diameters[snap.bonds.typeid == 0] *= rescale_backbone_bonds
-    
     colors = get_cmap(cmap)(Normalize()(colorscale))[:,:3]
 
-    return backends.fresnel(positions, bonds, colors, diameters, **kwargs)
+    return backends.fresnel(positions, bonds, colors, radii, **kwargs)
 
 
 def _get_chrom_bounds(snap):
