@@ -12,9 +12,9 @@ dependencies:
     - fresnel>=0.13
     - gsd>=2.8
     - pip:
-        - tornado==6.0.0
         - cython
         - ipython
         - joblib
         - notebook
+        - tornado==6.0.0
         - git+https://github.com/open2c/polykit.git

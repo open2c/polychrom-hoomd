@@ -9,11 +9,13 @@ def get_hoomd_device(notice_level=3):
     
     try:
         device = hoomd.device.GPU(notice_level=notice_level)
-        print("HOOMD is running on the following GPU(s):\n"
-              "\n".join(device.get_available_devices()))
+        
+        print("HOOMD is running on the following GPU(s):")
+        print("\n".join(device.get_available_devices()))
         
     except RuntimeError:
         device = hoomd.device.CPU(notice_level=notice_level)
+        
         print("HOOMD is running on the CPU")
         
     return device

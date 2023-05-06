@@ -116,16 +116,16 @@ def get_dpd_forces(nlist, **force_dict):
         if cutoff < _force['Cutoff']:
             cutoff = _force['Cutoff']
             
-    mode_thermo = (force['Type'] != "DPD") | (cutoff != force['Cutoff'])
+    disable_conservative = (force['Type'] != "DPD") | (cutoff != force['Cutoff'])
     
-    if mode_thermo:
+    if disable_conservative:
         print("Setting up DPD with the conservative force contribution disabled")
 
     dpd_force = md.pair.DPD(nlist=nlist, kT=1.0, default_r_cut=cutoff)
 
     for t1 in force['Matrix']:
         for t2 in force['Matrix'][t1]:
-            if mode_thermo:
+            if disable_conservative:
                 dpd_force.params[(t1, t2)] = dict(A=0, gamma=1)
                 
             else:

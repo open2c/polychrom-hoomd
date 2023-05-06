@@ -13,7 +13,7 @@ conda activate polychrom-hoomd
 
 Following which the code may be installed as usual,
 ~~~shell
-python3 setup.py install
+python3 -m pip install -e .
 ~~~
 
 ## Usage
