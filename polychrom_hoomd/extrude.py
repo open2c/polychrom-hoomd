@@ -1,9 +1,7 @@
 import hoomd
-import gsd.hoomd
 
 import numpy as np
-
-from polychrom_hoomd.utils import get_trans_cis_ids, get_gsd_snapshot
+import polychrom_hoomd.utils as utils
 
 
 def compute_LEF_pos(extrusion_engine, n_tot,
@@ -54,14 +52,14 @@ def update_topology(system, bond_list, thermalize=False):
     """Update topology based on LEF positions"""
     
     snap = system.state.get_snapshot()
-    snap_gsd = get_gsd_snapshot(snap)
+    snap_gsd = utils.get_gsd_snapshot(snap)
     
     # Discard contiguous loops
     redundant_bonds = (bond_list[:,1] - bond_list[:,0] < 2)
     LEF_bonds = bond_list[~redundant_bonds]
 
     # Discard trans-chromosomal loops
-    bond_trans_ids, _ = get_trans_cis_ids(LEF_bonds, snap)
+    bond_trans_ids, _ = utils.get_trans_cis_ids(LEF_bonds, snap)
     
     trans_bonds = (bond_trans_ids[:,1] != bond_trans_ids[:,0])
     LEF_bonds = LEF_bonds[~trans_bonds]
@@ -95,6 +93,5 @@ def update_topology(system, bond_list, thermalize=False):
     
     system.state.set_snapshot(snap)
     
-    # Re-thermalize system to limit extrusion-driven temperature drift
     if thermalize:
         system.state.thermalize_particle_momenta(filter=hoomd.filter.All(), kT=1.0)
