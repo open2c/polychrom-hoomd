@@ -3,7 +3,7 @@ import gsd.hoomd
 
 import numpy as np
 
-from polychrom_hoomd.render import _get_chrom_bounds
+from polychrom_hoomd.utils import get_trans_cis_ids, get_gsd_snapshot
 
 
 def compute_LEF_pos(extrusion_engine, n_tot,
@@ -54,19 +54,16 @@ def update_topology(system, bond_list, thermalize=False):
     """Update topology based on LEF positions"""
     
     snap = system.state.get_snapshot()
-    snap_gsd = _get_gsd_snapshot(snap)
+    snap_gsd = get_gsd_snapshot(snap)
     
     # Discard contiguous loops
     redundant_bonds = (bond_list[:,1] - bond_list[:,0] < 2)
     LEF_bonds = bond_list[~redundant_bonds]
 
     # Discard trans-chromosomal loops
-    chrom_bounds = _get_chrom_bounds(snap)
-    chrom_ends = np.cumsum(np.diff(chrom_bounds, axis=1)+1)
-
-    bond_chrom_ids = np.digitize(LEF_bonds, chrom_ends)
+    bond_trans_ids, _ = get_trans_cis_ids(LEF_bonds, snap)
     
-    trans_bonds = (bond_chrom_ids[:,1] != bond_chrom_ids[:,0])
+    trans_bonds = (bond_trans_ids[:,1] != bond_trans_ids[:,0])
     LEF_bonds = LEF_bonds[~trans_bonds]
     
     # Update LEF bonds
@@ -79,6 +76,7 @@ def update_topology(system, bond_list, thermalize=False):
     groups[:n_non_LEF] = snap.bonds.group[:n_non_LEF]
     groups[n_non_LEF:] = LEF_bonds
     
+    # LEF bonds should always be assigned to typeid 1
     typeids[:n_non_LEF] = snap.bonds.typeid[:n_non_LEF]
     typeids[n_non_LEF:] = 1
 
@@ -97,24 +95,6 @@ def update_topology(system, bond_list, thermalize=False):
     
     system.state.set_snapshot(snap)
     
+    # Re-thermalize system to limit extrusion-driven temperature drift
     if thermalize:
         system.state.thermalize_particle_momenta(filter=hoomd.filter.All(), kT=1.0)
-
-
-def _get_gsd_snapshot(snap_hoomd):
-    """Convert HOOMD snapshots to assignable GSD snapshots"""
-
-    snap_gsd = gsd.hoomd.Frame()
-
-    for attr in snap_gsd.__dict__:
-        data_gsd = getattr(snap_gsd, attr)
-        
-        if hasattr(snap_hoomd, attr):
-            data_hoomd = getattr(snap_hoomd, attr)
-
-            if hasattr(data_gsd, '__dict__'):
-                for prop in data_gsd.__dict__:
-                    if hasattr(data_hoomd, prop):
-                        setattr(data_gsd, prop, getattr(data_hoomd, prop))
-        
-    return snap_gsd
