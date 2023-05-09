@@ -38,10 +38,10 @@ def domain_viewer(snap,
         
         ax.set_title(map_name)
         
-        types = typeids[chrom_bounds[i,0]:chrom_bounds[i,1]+1]
+        types = typeids[chrom_bounds[i, 0]:chrom_bounds[i, 1]+1]
         
         colors = np.ones((types.shape[0], 4))
-        colors[:,:3] = get_cmap(cmap)(Normalize(vmin=vmin, vmax=vmax)(types))[:,:3]
+        colors[:, :3] = get_cmap(cmap)(Normalize(vmin=vmin, vmax=vmax)(types))[:, :3]
 
         map = ListedColormap(colors, name=map_name)
         
@@ -79,7 +79,7 @@ def fresnel(snap,
     polymer_mask = np.ones(snap.particles.N, dtype=bool)
 
     polymer_mask[bonds] = False
-    bond_mask[bonds[snap.bonds.typeid>0]] = False
+    bond_mask[bonds[snap.bonds.typeid > 0]] = False
     
     bond_mask[polymer_mask] = False
     positions[~polymer_mask] = utils.unwrap_coordinates(snap, ~polymer_mask)
@@ -107,6 +107,6 @@ def fresnel(snap,
     else:
         colorscale = np.arange(snap.particles.N)
     
-    colors = get_cmap(cmap)(Normalize()(colorscale))[:,:3]
+    colors = get_cmap(cmap)(Normalize()(colorscale))[:, :3]
 
     return backends.fresnel(positions, bonds, colors, radii, **kwargs)

@@ -36,7 +36,7 @@ def compute_LEF_pos(extrusion_engine, n_tot,
     LEF_pos = np.zeros((trajectory_length, LEF_num, 2), dtype=int)
     bins = np.linspace(0, trajectory_length, bin_steps, dtype=int)
 
-    for st,end in zip(bins[:-1], bins[1:]):
+    for st, end in zip(bins[:-1], bins[1:]):
         cur = []
         
         for i in range(st, end):
@@ -55,31 +55,31 @@ def update_topology(system, bond_list, thermalize=False):
     snap_gsd = utils.get_gsd_snapshot(snap)
     
     # Discard contiguous loops
-    redundant_bonds = (bond_list[:,1] - bond_list[:,0] < 2)
+    redundant_bonds = (bond_list[:, 1] - bond_list[:, 0] < 2)
+    
     LEF_bonds = bond_list[~redundant_bonds]
 
     # Discard trans-chromosomal loops
     bond_trans_ids, _ = utils.get_trans_cis_ids(LEF_bonds, snap)
+    trans_bonds = (bond_trans_ids[:, 1] != bond_trans_ids[:, 0])
     
-    trans_bonds = (bond_trans_ids[:,1] != bond_trans_ids[:,0])
     LEF_bonds = LEF_bonds[~trans_bonds]
     
-    # Update LEF bonds
+    # LEF bonds should always be assigned to typeid 1
     n_LEF = LEF_bonds.shape[0]
     n_non_LEF = np.count_nonzero(snap.bonds.typeid != 1)
         
     groups = np.zeros((n_non_LEF+n_LEF, 2), dtype=np.int32)
     typeids = np.zeros(n_non_LEF+n_LEF, dtype=np.int32)
     
-    groups[:n_non_LEF] = snap.bonds.group[:n_non_LEF]
+    groups[:n_non_LEF] = snap.bonds.group[snap.bonds.typeid != 1]
     groups[n_non_LEF:] = LEF_bonds
     
-    # LEF bonds should always be assigned to typeid 1
-    typeids[:n_non_LEF] = snap.bonds.typeid[:n_non_LEF]
+    typeids[:n_non_LEF] = snap.bonds.typeid[snap.bonds.typeid != 1]
     typeids[n_non_LEF:] = 1
 
     # Bond resizing in HOOMD v3 requires full array reassignment
-    snap_gsd.bonds.N = groups.shape[0]
+    snap_gsd.bonds.N = n_non_LEF + n_LEF
 
     snap_gsd.bonds.group = groups
     snap_gsd.bonds.typeid = typeids

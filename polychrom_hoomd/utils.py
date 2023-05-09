@@ -1,5 +1,5 @@
-import gsd.hoomd
 import freud.box
+import gsd.hoomd
 
 import numpy as np
 
@@ -9,15 +9,15 @@ def get_chrom_bounds(snap):
     Infer chromosome bounds from the snapshot topology
     """
 
-    backbone_bonds = snap.bonds.group[snap.bonds.typeid==0]
+    backbone_bonds = snap.bonds.group[snap.bonds.typeid == 0]
 
-    bond_breaks, = np.nonzero(backbone_bonds[1:,0] != backbone_bonds[:-1,1])
-    chrom_list = np.split(backbone_bonds, bond_breaks+1)
+    bond_breaks, = np.nonzero(backbone_bonds[1:, 0] != backbone_bonds[:-1, 1])
+    chrom_list = np.split(backbone_bonds, bond_breaks + 1)
     
     chrom_bounds = np.zeros((len(chrom_list), 2), dtype=np.int32)
     
     for i, bonds in enumerate(chrom_list):
-        chrom_bounds[i] = bonds[0,0], bonds[-1,1]
+        chrom_bounds[i] = bonds[0, 0], bonds[-1, 1]
 
     return chrom_bounds
 
