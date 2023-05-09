@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import polychrom_hoomd.utils as utils
 
 from polykit.renderers import backends
-from polychrom_hoomd.utils import get_chrom_bounds
 
 from matplotlib.cm import get_cmap
 from matplotlib.ticker import AutoLocator
@@ -19,7 +19,7 @@ def domain_viewer(snap,
     Visualize chromatin domains per chromosome in 1D
     """
         
-    chrom_bounds = get_chrom_bounds(snap)
+    chrom_bounds = utils.get_chrom_bounds(snap)
     chrom_lengths = np.diff(chrom_bounds, axis=1).flatten() + 1.
     
     n_chrom = chrom_bounds.shape[0]
@@ -52,6 +52,7 @@ def domain_viewer(snap,
             pass
             
         plt.set_cmap(map)
+        
         cb = ColorbarBase(ax, orientation='horizontal', norm=NoNorm())
     
         cb.locator = AutoLocator()
@@ -73,23 +74,23 @@ def fresnel(snap,
 
     bonds = snap.bonds.group.copy()
     positions = snap.particles.position.copy()
-    
-    radii = snap.particles.diameter.copy() * 0.5
-    colorscale = np.zeros(snap.particles.N)
-    
+        
     bond_mask = np.ones(snap.particles.N, dtype=bool)
     polymer_mask = np.ones(snap.particles.N, dtype=bool)
 
     polymer_mask[bonds] = False
     bond_mask[bonds[snap.bonds.typeid>0]] = False
     
-    num_unbound_atoms = np.count_nonzero(polymer_mask)
+    bond_mask[polymer_mask] = False
+    positions[~polymer_mask] = utils.unwrap_coordinates(snap, ~polymer_mask)
+    
+    radii = snap.particles.diameter.copy() * 0.5
+    radii[bond_mask] *= rescale_backbone_bonds
 
-    if num_unbound_atoms > 0:
-        bond_mask[-num_unbound_atoms:] = False
+    colorscale = np.zeros(snap.particles.N)
 
     if show_chromosomes:
-        chrom_bounds = get_chrom_bounds(snap)
+        chrom_bounds = utils.get_chrom_bounds(snap)
                 
         for i, bounds in enumerate(chrom_bounds):
             colorscale[bounds[0]:bounds[1]+1] = i+1
@@ -106,7 +107,6 @@ def fresnel(snap,
     else:
         colorscale = np.arange(snap.particles.N)
     
-    radii[bond_mask] *= rescale_backbone_bonds
     colors = get_cmap(cmap)(Normalize()(colorscale))[:,:3]
 
     return backends.fresnel(positions, bonds, colors, radii, **kwargs)

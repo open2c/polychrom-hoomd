@@ -7,3 +7,4 @@ cython
 joblib
 ipython
 notebook
+freud-analysis

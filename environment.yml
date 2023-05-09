@@ -16,5 +16,6 @@ dependencies:
         - ipython
         - joblib
         - notebook
+        - freud-analysis
         - tornado==6.0.0
         - git+https://github.com/open2c/polykit.git

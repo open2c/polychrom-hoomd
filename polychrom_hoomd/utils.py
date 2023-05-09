@@ -1,4 +1,5 @@
 import gsd.hoomd
+import freud.box
 
 import numpy as np
 
@@ -52,3 +53,25 @@ def get_gsd_snapshot(snap_hoomd):
                         setattr(data_gsd, prop, getattr(data_hoomd, prop))
         
     return snap_gsd
+
+
+def unwrap_coordinates(snap, exclude_array=None):
+    """Unwrap periodic boundary conditions"""
+
+    box = freud.box.Box.from_box(snap.configuration.box)
+    
+    positions = snap.particles.position.copy()
+    
+    if isinstance(snap.particles.image, np.ndarray):
+        images = snap.particles.image.copy()
+        
+    else:
+        images = np.zeros((snap.particles.N, 3), dtype=np.int32)
+    
+    if isinstance(exclude_array, np.ndarray):
+        assert exclude_array.dtype == 'bool'
+    
+        images = images[exclude_array]
+        positions = positions[exclude_array]
+
+    return box.unwrap(positions, images)
