@@ -1,5 +1,5 @@
-import freud.box
 import gsd.hoomd
+import freud.box
 
 import numpy as np
 

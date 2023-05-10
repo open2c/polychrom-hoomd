@@ -1,64 +1,29 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import polychrom_hoomd.utils as utils
 
-from polykit.renderers import backends
+from polykit.renderers import backends, viewers
 
 from matplotlib.cm import get_cmap
-from matplotlib.ticker import AutoLocator
-from matplotlib.colorbar import ColorbarBase
-from matplotlib.colors import Normalize, ListedColormap, NoNorm
+from matplotlib.colors import Normalize
 
 
-def domain_viewer(snap,
-                  cmap='coolwarm',
-                  numticks=10,
-                  height=0.5,
-                  width=10):
+def domain_viewer(snap, cmap='coolwarm', **kwargs):
     """
     Visualize chromatin domains per chromosome in 1D
     """
         
     chrom_bounds = utils.get_chrom_bounds(snap)
-    chrom_lengths = np.diff(chrom_bounds, axis=1).flatten() + 1.
-    
-    n_chrom = chrom_bounds.shape[0]
-    
+    chrom_lengths = np.diff(chrom_bounds, axis=1).flatten() + 1
+        
     typeids = snap.particles.typeid.copy()
     vmin, vmax = typeids.min(), typeids.max()
-
-    fig = plt.figure(figsize=(width, height*n_chrom))
     
-    heights = np.linspace(1, 0, num=n_chrom)
-    lengths = chrom_lengths/chrom_lengths.max()
-
-    for i in range(n_chrom):
-        map_name = "chromosome %d" % (i+1)
-        ax = fig.add_axes([(1-lengths[i])/2., heights[i], lengths[i], height/n_chrom])
-        
-        ax.set_title(map_name)
-        
-        types = typeids[chrom_bounds[i, 0]:chrom_bounds[i, 1]+1]
-        
-        colors = np.ones((types.shape[0], 4))
-        colors[:, :3] = get_cmap(cmap)(Normalize(vmin=vmin, vmax=vmax)(types))[:, :3]
-
-        map = ListedColormap(colors, name=map_name)
-        
-        try:
-            plt.register_cmap(name=map_name, cmap=map)
-            
-        except ValueError:
-            pass
-            
-        plt.set_cmap(map)
-        
-        cb = ColorbarBase(ax, orientation='horizontal', norm=NoNorm())
+    num_monomers = sum(chrom_lengths)
     
-        cb.locator = AutoLocator()
-        cb.update_ticks()
+    colors = get_cmap(cmap)(Normalize(vmin=vmin, vmax=vmax)(typeids))[:num_monomers]
+    colors[:, 3] = 1.
     
-    plt.show()
+    viewers.chromosome_viewer(chrom_lengths, colors, **kwargs)
 
 
 def fresnel(snap,
@@ -109,4 +74,4 @@ def fresnel(snap,
     
     colors = get_cmap(cmap)(Normalize()(colorscale))[:, :3]
 
-    return backends.fresnel(positions, bonds, colors, radii, **kwargs)
+    return backends.Fresnel(positions, bonds, colors, radii, **kwargs)

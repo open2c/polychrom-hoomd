@@ -3,8 +3,8 @@ channels:
     - conda-forge
 dependencies:
     - pip
-    - python>=3.0
-    - numpy>=1.9
+    - python<3.11
+    - numpy<1.24
     - scipy>=0.16
     - matplotlib>=2.0
     - pandas>=0.19
@@ -13,8 +13,9 @@ dependencies:
     - gsd>=2.8
     - pip:
         - cython
-        - ipython
         - joblib
+        - pyside2
+        - ipython
         - notebook
         - freud-analysis
         - tornado==6.0.0
