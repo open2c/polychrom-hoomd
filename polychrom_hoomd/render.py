@@ -1,10 +1,10 @@
 import numpy as np
 import polychrom_hoomd.utils as utils
 
-from polykit.renderers import backends, viewers
-
 from matplotlib.cm import get_cmap
 from matplotlib.colors import Normalize
+
+from polykit.renderers import backends, viewers
 
 
 def domain_viewer(snap, cmap='coolwarm', **kwargs):
@@ -72,6 +72,6 @@ def fresnel(snap,
     else:
         colorscale = np.arange(snap.particles.N)
     
-    colors = get_cmap(cmap)(Normalize()(colorscale))[:, :3]
+    colors = get_cmap(cmap)(Normalize()(colorscale))
 
     return backends.Fresnel(positions, bonds, colors, radii, **kwargs)
