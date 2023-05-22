@@ -1,6 +1,7 @@
+import numba
 import gsd.hoomd
-import freud.box
 
+import math as m
 import numpy as np
 
 
@@ -55,23 +56,35 @@ def get_gsd_snapshot(snap_hoomd):
     return snap_gsd
 
 
-def unwrap_coordinates(snap, exclude_array=None):
+def unwrap_coordinates(snap):
     """Unwrap periodic boundary conditions"""
 
-    box = freud.box.Box.from_box(snap.configuration.box)
-    
-    positions = snap.particles.position.copy()
-    
-    if isinstance(snap.particles.image, np.ndarray):
-        images = snap.particles.image.copy()
+    box = snap.configuration.box[:3]
         
-    else:
-        images = np.zeros((snap.particles.N, 3), dtype=np.int32)
+    positions = snap.particles.position.copy()
+    backbone_bonds = snap.bonds.group[snap.bonds.typeid == 0]
     
-    if isinstance(exclude_array, np.ndarray):
-        assert exclude_array.dtype == 'bool'
-    
-        images = images[exclude_array]
-        positions = positions[exclude_array]
+    chrom_bounds = get_chrom_bounds(snap)
+    _unwrap_backbone(positions, backbone_bonds, box)
 
-    return box.unwrap(positions, images)
+    for bounds in chrom_bounds:
+        telomere_image = snap.particles.image[bounds[0]]
+        chrom_positions = positions[bounds[0]:bounds[1]+1]
+
+        chrom_positions += (telomere_image*box)[None, :]
+
+    return positions
+    
+    
+@numba.njit("void(f4[:,:], u4[:,:], f4[:])")
+def _unwrap_backbone(_positions, _backbone_bonds, _box):
+    """Unwrap chromosome backbone(s)"""
+    
+    for bond in _backbone_bonds:
+        p0 = _positions[bond[0]]
+        p1 = _positions[bond[1]]
+        
+        for i in range(3):
+            while abs(p1[i]-p0[i]) > _box[i]/2.:
+                PBC_shift = m.copysign(_box[i], p1[i]-p0[i])
+                p1[i] -= PBC_shift

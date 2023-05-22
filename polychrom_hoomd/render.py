@@ -47,7 +47,7 @@ def fresnel(snap,
     bond_mask[bonds[snap.bonds.typeid > 0]] = False
     
     bond_mask[polymer_mask] = False
-    positions[~polymer_mask] = utils.unwrap_coordinates(snap, ~polymer_mask)
+    positions = utils.unwrap_coordinates(snap)
     
     radii = snap.particles.diameter.copy() * 0.5
     radii[bond_mask] *= rescale_backbone_bonds
