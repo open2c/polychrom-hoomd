@@ -1,0 +1,11 @@
+{
+    "trajectory_length": 1000,
+    "3D_to_1D_steps": 200,
+    "dummy_steps": 500,
+    "bin_steps": 50,
+    "LEF_separation": 100,
+    "LEF_lifetime": 50,
+    "LEF_stall": 0.9,
+    "LEF_velocity": 1,
+    "TAD_size": 100
+}

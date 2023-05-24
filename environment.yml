@@ -1,0 +1,22 @@
+name: polychrom-hoomd
+channels:
+    - conda-forge
+dependencies:
+    - pip
+    - python<3.11
+    - numpy<1.24
+    - scipy>=0.16
+    - matplotlib>=2.0
+    - pandas>=0.19
+    - hoomd>=3.0
+    - fresnel>=0.13
+    - gsd>=2.8
+    - pip:
+        - numba
+        - cython
+        - joblib
+        - pyside2
+        - ipython
+        - notebook
+        - tornado==6.0.0
+        - git+https://github.com/open2c/polykit.git
