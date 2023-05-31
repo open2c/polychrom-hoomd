@@ -1,7 +1,6 @@
 import numba
 import gsd.hoomd
 
-import math as m
 import numpy as np
 
 
@@ -59,19 +58,21 @@ def get_gsd_snapshot(snap_hoomd):
 def unwrap_coordinates(snap):
     """Unwrap periodic boundary conditions"""
 
-    box = snap.configuration.box[:3]
-        
-    positions = snap.particles.position.copy()
+    box = np.asarray(snap.configuration.box[:3], dtype=np.float32)
+    positions = np.asarray(snap.particles.position, dtype=np.float32)
+
     backbone_bonds = snap.bonds.group[snap.bonds.typeid == 0]
     
-    chrom_bounds = get_chrom_bounds(snap)
     _unwrap_backbone(positions, backbone_bonds, box)
 
-    for bounds in chrom_bounds:
-        telomere_image = snap.particles.image[bounds[0]]
-        chrom_positions = positions[bounds[0]:bounds[1]+1]
+    if isinstance(snap.particles.image, np.ndarray):
+        chrom_bounds = get_chrom_bounds(snap)
 
-        chrom_positions += (telomere_image*box)[None, :]
+        for bounds in chrom_bounds:
+            telomere_image = snap.particles.image[bounds[0]]
+            chrom_positions = positions[bounds[0]:bounds[1]+1]
+
+            chrom_positions += (telomere_image*box)[None, :]
 
     return positions
     
@@ -85,6 +86,5 @@ def _unwrap_backbone(_positions, _backbone_bonds, _box):
         p1 = _positions[bond[1]]
         
         for i in range(3):
-            while abs(p1[i]-p0[i]) > _box[i]/2.:
-                PBC_shift = m.copysign(_box[i], p1[i]-p0[i])
-                p1[i] -= PBC_shift
+            PBC_shift = round((p1[i]-p0[i])/_box[i])
+            p1[i] -= _box[i] * PBC_shift
