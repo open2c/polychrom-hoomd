@@ -54,7 +54,7 @@ def get_logger(system, quantities=[]):
 def table_formatter(logger, period=5000, **kwargs):
     """Set tabulated logs"""
     
-    table = hoomd.write.Table(trigger=hoomd.trigger.Periodic(period=period),
+    table = hoomd.write.Table(trigger=hoomd.trigger.Periodic(period=int(period)),
                               logger=logger, **kwargs)
                              
     return table

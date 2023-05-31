@@ -1,10 +1,10 @@
 import numpy as np
 import polychrom_hoomd.utils as utils
 
+from polykit.renderers import backends, viewers
+
 from matplotlib.cm import get_cmap
 from matplotlib.colors import Normalize
-
-from polykit.renderers import backends, viewers
 
 
 def domain_viewer(snap, cmap='coolwarm', **kwargs):
@@ -18,10 +18,11 @@ def domain_viewer(snap, cmap='coolwarm', **kwargs):
     typeids = snap.particles.typeid.copy()
     vmin, vmax = typeids.min(), typeids.max()
     
-    num_monomers = sum(chrom_lengths)
+    number_of_monomers = sum(chrom_lengths)
+    colors = get_cmap(cmap)(Normalize(vmin=vmin, vmax=vmax)(typeids))
     
-    colors = get_cmap(cmap)(Normalize(vmin=vmin, vmax=vmax)(typeids))[:num_monomers]
     colors[:, 3] = 1.
+    colors = colors[:number_of_monomers]
     
     viewers.chromosome_viewer(chrom_lengths, colors, **kwargs)
 
@@ -38,7 +39,7 @@ def fresnel(snap,
     """
 
     bonds = snap.bonds.group.copy()
-    positions = snap.particles.position.copy()
+    positions = utils.unwrap_coordinates(snap)
         
     bond_mask = np.ones(snap.particles.N, dtype=bool)
     polymer_mask = np.ones(snap.particles.N, dtype=bool)
@@ -47,8 +48,7 @@ def fresnel(snap,
     bond_mask[bonds[snap.bonds.typeid > 0]] = False
     
     bond_mask[polymer_mask] = False
-    positions = utils.unwrap_coordinates(snap)
-    
+
     radii = snap.particles.diameter.copy() * 0.5
     radii[bond_mask] *= rescale_backbone_bonds
 
