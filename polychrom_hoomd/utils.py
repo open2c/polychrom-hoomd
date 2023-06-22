@@ -1,6 +1,4 @@
-import numba
 import gsd.hoomd
-
 import numpy as np
 
 
@@ -36,7 +34,7 @@ def get_trans_cis_ids(ids, snap):
     return trans_ids, cis_ids
     
     
-def get_gsd_snapshot(snap_hoomd):
+def get_gsd_snapshot(snap):
     """Convert HOOMD snapshots to assignable GSD snapshots"""
 
     snap_gsd = gsd.hoomd.Frame()
@@ -44,47 +42,36 @@ def get_gsd_snapshot(snap_hoomd):
     for attr in snap_gsd.__dict__:
         data_gsd = getattr(snap_gsd, attr)
         
-        if hasattr(snap_hoomd, attr):
-            data_hoomd = getattr(snap_hoomd, attr)
+        if hasattr(snap, attr):
+            data = getattr(snap, attr)
 
             if hasattr(data_gsd, '__dict__'):
                 for prop in data_gsd.__dict__:
-                    if hasattr(data_hoomd, prop):
-                        setattr(data_gsd, prop, getattr(data_hoomd, prop))
+                    if hasattr(data, prop):
+                        setattr(data_gsd, prop, getattr(data, prop))
         
     return snap_gsd
 
 
-def unwrap_coordinates(snap):
+def unwrap_coordinates(snap, max_delta=1):
     """Unwrap periodic boundary conditions"""
 
-    box = np.asarray(snap.configuration.box[:3], dtype=np.float32)
-    positions = np.asarray(snap.particles.position, dtype=np.float32)
-
-    backbone_bonds = snap.bonds.group[snap.bonds.typeid == 0]
+    box = snap.configuration.box[None, :3]
+    positions = snap.particles.position.copy()
     
-    _unwrap_backbone(positions, backbone_bonds, box)
+    chrom_bounds = get_chrom_bounds(snap)
 
-    if isinstance(snap.particles.image, np.ndarray):
-        chrom_bounds = get_chrom_bounds(snap)
+    for bounds in chrom_bounds:
+        chrom_positions = positions[bounds[0]:bounds[1]+1]
 
-        for bounds in chrom_bounds:
+        if isinstance(snap.particles.image, np.ndarray):
             telomere_image = snap.particles.image[bounds[0]]
-            chrom_positions = positions[bounds[0]:bounds[1]+1]
-
-            chrom_positions += (telomere_image*box)[None, :]
+            chrom_positions += telomere_image*box
+            
+        for delta in range(1, max_delta+1):
+            bond_vectors = chrom_positions[delta:] - chrom_positions[:-delta]
+            PBC_shifts = np.round(bond_vectors / box)
+            
+            chrom_positions[delta:] -= np.cumsum(PBC_shifts, axis=0) * box
 
     return positions
-    
-    
-@numba.njit("void(f4[:,:], u4[:,:], f4[:])")
-def _unwrap_backbone(_positions, _backbone_bonds, _box):
-    """Unwrap chromosome backbone(s)"""
-    
-    for bond in _backbone_bonds:
-        p0 = _positions[bond[0]]
-        p1 = _positions[bond[1]]
-        
-        for i in range(3):
-            PBC_shift = round((p1[i]-p0[i])/_box[i])
-            p1[i] -= _box[i] * PBC_shift

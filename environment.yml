@@ -8,11 +8,10 @@ dependencies:
     - scipy>=0.16
     - matplotlib>=2.0
     - pandas>=0.19
-    - hoomd>=3.0
+    - hoomd==3.11
     - fresnel>=0.13
-    - gsd>=2.8
+    - gsd==2.9
     - pip:
-        - numba
         - cython
         - joblib
         - pyside2
