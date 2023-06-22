@@ -61,7 +61,7 @@ def fresnel(snap,
             colorscale[bounds[0]:bounds[1]+1] = i+1
                         
     elif show_loops:
-        loop_bounds = bonds[snap.bonds.typeid==1]
+        loop_bounds = bonds[snap.bonds.typeid == 1]
                 
         for i, bounds in enumerate(loop_bounds):
             colorscale[bounds[0]:bounds[1]+1] = i+1

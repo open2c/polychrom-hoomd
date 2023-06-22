@@ -99,19 +99,19 @@ def set_binders(snap, binder_positions,
     
     number_of_particles = number_of_binders + snap.particles.N
             
-    positions = np.zeros((number_of_particles, 3), dtype=np.float32)
     typeids = np.zeros(number_of_particles, dtype=np.uint32)
+    positions = np.zeros((number_of_particles, 3), dtype=np.float32)
+
+    typeids[:snap.particles.N] = snap.particles.typeid
+    typeids[snap.particles.N:] = len(snap.particles.types)
     
     positions[:snap.particles.N] = snap.particles.position
     positions[snap.particles.N:] = binder_positions
 
-    typeids[:snap.particles.N] = snap.particles.typeid
-    typeids[snap.particles.N:] = len(snap.particles.types)
-
     snap.particles.N = number_of_particles
     snap.particles.types.extend(binder_type_list)
-        
-    snap.particles.position = positions
+
     snap.particles.typeid = typeids
+    snap.particles.position = positions
 
     snap.particles.diameter = np.ones(number_of_particles, dtype=np.float32)
