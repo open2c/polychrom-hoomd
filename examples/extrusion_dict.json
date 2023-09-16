@@ -1,11 +1,42 @@
 {
-    "trajectory_length": 1000,
-    "3D_to_1D_steps": 200,
-    "dummy_steps": 500,
-    "bin_steps": 50,
+    "CTCF_facestall": {
+        "A": 0.9,
+        "B": 0.9
+    },
+    "CTCF_backstall": {
+        "A": 0,
+        "B": 0
+    },
+    "CTCF_offtime": {
+        "A": 0.1,
+        "B": 0.1
+    },
+    "CTCF_lifetime": {
+        "A": 10,
+        "B": 10
+    },
+    "LEF_offtime": {
+        "A": 10,
+        "B": 10
+    },
+    "LEF_lifetime": {
+        "A": 50,
+        "B": 50
+    },
+    "LEF_stalled_lifetime": {
+        "A": 50,
+        "B": 50
+    },
+    "LEF_pause": {
+        "A": 0,
+        "B": 0
+    },
     "LEF_separation": 100,
-    "LEF_lifetime": 50,
-    "LEF_stall": 0.9,
-    "LEF_velocity": 1,
-    "TAD_size": 100
+    "sites_per_monomer": 1,
+    "monomers_per_replica": 15000,
+    "number_of_replica": 1,
+    "steps": 1000,
+    "dummy_steps": 500,
+    "velocity_multiplier": 1,
+    "3D_to_1D_steps": 200
 }

@@ -4,50 +4,6 @@ import numpy as np
 import polychrom_hoomd.utils as utils
 
 
-def compute_LEF_pos(extrusion_engine, n_tot,
-                    trajectory_length, dummy_steps, bin_steps,
-                    LEF_lifetime, LEF_separation, LEF_stall, TAD_size,
-                    **kwargs):
-    """LEF dynamics computation"""
-
-    LEF_num = n_tot // LEF_separation
-    
-    birth_array = np.zeros(n_tot, dtype=np.double) + 0.1
-    pause_array = np.zeros(n_tot, dtype=np.double)
-        
-    death_array = np.zeros(n_tot, dtype=np.double) + 1./LEF_lifetime
-    stall_death_array = np.zeros(n_tot, dtype=np.double) + 1./LEF_lifetime
-    
-    stall_list = np.arange(0, n_tot, TAD_size)
-    stall_left_array = np.zeros(n_tot, dtype=np.double)
-    stall_right_array = np.zeros(n_tot, dtype=np.double)
-    
-    for i in stall_list:
-        stall_left_array[i] = LEF_stall
-        stall_right_array[i] = LEF_stall
-        
-    LEF_tran = extrusion_engine(birth_array, death_array,
-                                stall_left_array, stall_right_array,
-                                pause_array, stall_death_array,
-                                LEF_num)
-    
-    LEF_tran.steps(dummy_steps)
-
-    LEF_pos = np.zeros((trajectory_length, LEF_num, 2), dtype=int)
-    bins = np.linspace(0, trajectory_length, bin_steps, dtype=int)
-
-    for st, end in zip(bins[:-1], bins[1:]):
-        cur = []
-        
-        for i in range(st, end):
-            LEF_tran.steps(1)
-            cur.append(np.asarray(LEF_tran.getLEFs()).T)
-            
-        LEF_pos[st:end] = np.asarray(cur)
-
-    return LEF_pos
-
-
 def update_topology(system, bond_list, thermalize=False):
     """Update topology based on LEF positions"""
     
@@ -55,9 +11,10 @@ def update_topology(system, bond_list, thermalize=False):
     snap_gsd = utils.get_gsd_snapshot(snap)
     
     # Discard contiguous loops
-    redundant_bonds = (bond_list[:, 1] - bond_list[:, 0] < 2)
+    bond_array = np.asarray(bond_list)
+    redundant_bonds = (bond_array[:, 1] - bond_array[:, 0] < 2)
     
-    LEF_bonds = bond_list[~redundant_bonds]
+    LEF_bonds = bond_array[~redundant_bonds]
 
     # Discard trans-chromosomal loops
     bond_trans_ids, _ = utils.get_trans_cis_ids(LEF_bonds, snap)
