@@ -56,9 +56,9 @@ def get_gsd_snapshot(snap):
 def unwrap_coordinates(snap, max_delta=1):
     """Unwrap periodic boundary conditions"""
 
-    box = snap.configuration.box[None, :3]
     positions = snap.particles.position.copy()
-    
+    box = np.asarray(snap.configuration.box)[None, :3]
+
     chrom_bounds = get_chrom_bounds(snap)
 
     for bounds in chrom_bounds:

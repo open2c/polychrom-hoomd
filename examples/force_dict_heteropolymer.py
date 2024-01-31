@@ -9,7 +9,7 @@
         "Backbone": {
             "Rest length": 1.0,
             "Type": "Harmonic",
-            "Wiggle distance": 0.05
+            "Wiggle distance": 0.1
         }
     },
     "External forces": {
@@ -20,7 +20,12 @@
             "Cutoff": 1.0,
             "Matrix": {
                 "A": {
-                    "A": 3.0
+                    "A": 5.0,
+                    "B": 5.0
+                },
+                "B": {
+                    "A": 5.0,
+                    "B": 5.0
                 }
             },
             "Type": "Polychrom"

@@ -2,7 +2,7 @@
     "Angular forces": {
         "Curvature": {
             "Stiffness": 1.5,
-            "Type": "KG"
+            "Type": "Harmonic"
         }
     },
     "Bonded forces": {
