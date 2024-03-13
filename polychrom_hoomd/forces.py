@@ -8,7 +8,7 @@ def DPD_func(cutoff, epsilon, width=1000):
     
     r = np.linspace(0, cutoff, width, endpoint=False)
 
-    U = epsilon * cutoff * (1. - r/cutoff)**2
+    U = epsilon/2. * cutoff * (1. - r/cutoff)**2
     F = epsilon * (1. - r/cutoff)
     
     return U, F
@@ -52,6 +52,17 @@ def kg_func(kappa, width=1000):
 
     return U, tau
 
+
+def harmonic_func(kappa, width=1000):
+    """Harmonic bending energy penalty function"""
+
+    theta = np.linspace(0, np.pi, width, endpoint=True)
+
+    U = kappa/2 * (theta-np.pi)**2
+    tau = kappa * (np.pi-theta)
+
+    return U, tau
+    
     
 def get_repulsion_forces(nlist, **force_dict):
     """Setup (soft) excluded-volume repulsion based on choice of thermostat"""
@@ -148,7 +159,7 @@ def get_bonded_forces(**force_dict):
             harmonic_force = md.bond.Harmonic()
             
             for bond_type, force in force_list.items():
-                if force['Type'] == "Harmonic":
+                if force['Type'] == force_type:
                     r0 = force['Rest length']
                     k_stretch = 1./force['Wiggle distance']**2
 
@@ -158,6 +169,24 @@ def get_bonded_forces(**force_dict):
                     harmonic_force.params[bond_type] = dict(k=0, r0=0)
             
             bonded_forces.append(harmonic_force)
+            
+        elif force_type == "FENE":
+            fene_force = md.bond.FENEWCA()
+            
+            for bond_type, force in force_list.items():
+                if force['Type'] == force_type:
+                    r0 = force['Bond length']
+                    k = force['Attraction strength']
+                    
+                    sigma = force['Repulsion width']
+                    epsilon = force['Repulsion strength']
+
+                    fene_force.params[bond_type] = dict(k=k, r0=r0, epsilon=epsilon, sigma=sigma, delta=0)
+                    
+                else:
+                    fene_force.params[bond_type] = dict(k=0, r0=1, epsilon=0, sigma=1, delta=0)
+                    
+            bonded_forces.append(fene_force)
             
         else:
             raise NotImplementedError("Unsupported bonded force: %s" % force_type)
@@ -174,20 +203,21 @@ def get_angular_forces(width=1000, **force_dict):
     force_types = set(force['Type'] for force in force_list.values())
     
     for force_type in force_types:
-        if force_type == "KG":
-            kg_force = md.angle.Table(width=width)
+        if force_type in ["KG", "Harmonic"]:
+            angular_force = md.angle.Table(width=width)
+            tabulated_func = kg_func if force_type == "KG" else harmonic_func
 
             for angle_type, force in force_list.items():
-                if force['Type'] == "KG":
+                if force['Type'] == force_type:
                     kappa = force['Stiffness']
-                    U, tau = kg_func(kappa, width=width)
+                    U, tau = tabulated_func(kappa, width=width)
 
-                    kg_force.params[angle_type] = dict(U=U, tau=tau)
+                    angular_force.params[angle_type] = dict(U=U, tau=tau)
                     
                 else:
-                    kg_force.params[angle_type] = dict(U=[0], tau=[0])
+                    angular_force.params[angle_type] = dict(U=[0], tau=[0])
                     
-            angular_forces.append(kg_force)
+            angular_forces.append(angular_force)
                     
         else:
             raise NotImplementedError("Unsupported angular force: %s" % force_type)
