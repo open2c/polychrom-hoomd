@@ -15,7 +15,7 @@ dependencies:
     - pyside2
     - ipython
     - notebook
-    - cooltools
     - pip:
         - git+https://github.com/open2c/polykit.git
+        - git+https://github.com/open2c/cooltools.git
         - git+https://github.com/mtortora/lattice-translocators.git
