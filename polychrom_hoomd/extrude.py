@@ -15,6 +15,7 @@ def update_topology(system, bond_list, thermalize=False):
     redundant_bonds = (bond_array[:, 1] - bond_array[:, 0] < 2)
     
     LEF_bonds = bond_array[~redundant_bonds]
+    LEF_typeid = snap.bonds.types.index('LEF')
 
     # Discard trans-chromosomal loops
     bond_trans_ids, _ = utils.get_trans_cis_ids(LEF_bonds, snap)
@@ -24,16 +25,16 @@ def update_topology(system, bond_list, thermalize=False):
     
     # LEF bonds should always be assigned to typeid 1
     n_LEF = LEF_bonds.shape[0]
-    n_non_LEF = np.count_nonzero(snap.bonds.typeid != 1)
+    n_non_LEF = np.count_nonzero(snap.bonds.typeid != LEF_typeid)
         
     groups = np.zeros((n_non_LEF+n_LEF, 2), dtype=np.int32)
     typeids = np.zeros(n_non_LEF+n_LEF, dtype=np.int32)
     
-    groups[:n_non_LEF] = snap.bonds.group[snap.bonds.typeid != 1]
+    groups[:n_non_LEF] = snap.bonds.group[snap.bonds.typeid != LEF_typeid]
     groups[n_non_LEF:] = LEF_bonds
     
-    typeids[:n_non_LEF] = snap.bonds.typeid[snap.bonds.typeid != 1]
-    typeids[n_non_LEF:] = 1
+    typeids[:n_non_LEF] = snap.bonds.typeid[snap.bonds.typeid != LEF_typeid]
+    typeids[n_non_LEF:] = LEF_typeid
 
     # Bond resizing in HOOMD v3 requires full array reassignment
     snap_gsd.bonds.N = n_non_LEF + n_LEF

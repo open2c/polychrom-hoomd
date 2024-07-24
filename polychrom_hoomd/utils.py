@@ -7,7 +7,8 @@ def get_chrom_bounds(snap):
     Infer chromosome bounds from the snapshot topology
     """
 
-    backbone_bonds = snap.bonds.group[snap.bonds.typeid == 0]
+    backbone_typeid = snap.bonds.types.index('Backbone')
+    backbone_bonds = snap.bonds.group[snap.bonds.typeid == backbone_typeid]
 
     bond_breaks, = np.nonzero(backbone_bonds[1:, 0] != backbone_bonds[:-1, 1])
     chrom_list = np.split(backbone_bonds, bond_breaks + 1)
@@ -35,7 +36,9 @@ def get_trans_cis_ids(ids, snap):
     
     
 def get_gsd_snapshot(snap):
-    """Convert HOOMD snapshots to assignable GSD snapshots"""
+    """
+    Convert HOOMD snapshots to assignable GSD snapshots
+    """
 
     snap_gsd = gsd.hoomd.Frame()
 
@@ -54,7 +57,9 @@ def get_gsd_snapshot(snap):
 
 
 def unwrap_coordinates(snap, max_delta=1):
-    """Unwrap periodic boundary conditions"""
+    """
+    Unwrap periodic boundary conditions
+    """
 
     positions = snap.particles.position.copy()
     box = np.asarray(snap.configuration.box)[None, :3]

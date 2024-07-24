@@ -15,17 +15,17 @@
         "A": 10,
         "B": 10
     },
-    "LEF_offtime": {
-        "A": 10,
-        "B": 10
+    "LEF_on_rate": {
+        "A": 0.1,
+        "B": 0.1
     },
-    "LEF_lifetime": {
-        "A": 50,
-        "B": 50
+    "LEF_off_rate": {
+        "A": 0.02,
+        "B": 0.02
     },
-    "LEF_stalled_lifetime": {
-        "A": 50,
-        "B": 50
+    "LEF_stalled_off_rate": {
+        "A": 0.02,
+        "B": 0.02
     },
     "LEF_pause": {
         "A": 0,

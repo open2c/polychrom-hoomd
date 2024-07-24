@@ -2,7 +2,9 @@ import hoomd
 import gsd.hoomd
 
 import numpy as np
-    
+
+from scipy.spatial import ConvexHull
+
 
 def get_hoomd_device(notice_level=3):
     """Initialise HOOMD on the CPU or GPU, based on availability"""
@@ -11,7 +13,7 @@ def get_hoomd_device(notice_level=3):
         device = hoomd.device.GPU(notice_level=notice_level)
         
         print("HOOMD is running on the following GPU(s):")
-        print("\n".join(device.get_available_devices()))
+        print("\n".join(device.devices))
         
     except RuntimeError:
         device = hoomd.device.CPU(notice_level=notice_level)
@@ -32,29 +34,37 @@ def get_simulation_box(box_length, pad=0):
     return snap
     
 
-def set_chains(snap, monomer_positions, chromosome_sizes,
-               monomer_type_list=['A', 'B'],
-               bond_type_list=['Backbone'],
-               angle_type_list=['Curvature'],
-               center=True):
+def set_chromosomes(snap, monomer_positions, chromosome_sizes,
+                    monomer_type_list=['A', 'B'],
+                    bond_type_list=['Backbone'],
+                    angle_type_list=['Curvature'],
+                    center=True):
     """Set chromosome conformations and topology"""
     
-    number_of_monomers = monomer_positions.shape[0]
-    monomer_positions = monomer_positions.astype(np.float32)
-    
     if center:
+        monomer_positions = np.asarray(monomer_positions, dtype=np.float32)
         monomer_positions -= monomer_positions.mean(axis=0, keepdims=True)
-                        
-    snap.particles.N = number_of_monomers
-    snap.particles.types = monomer_type_list
-        
-    snap.particles.position = monomer_positions
-    
-    snap.particles.typeid = np.zeros(number_of_monomers, dtype=np.uint32)
-    snap.particles.diameter = np.ones(number_of_monomers, dtype=np.float32)
-    
+	
+    update_snapshot_data(snap.particles, monomer_positions, monomer_type_list)
+	
     set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_list)
+
+
+def set_membrane_vertices(snap, vertex_positions,
+                          vertex_type_list=['Vertices'],
+                          bond_type_list=['Membrane'],
+                          dihedral_type_list=['Curvature'],
+                          center=True):
+    """Set chromosome conformations and topology"""
+
+    if center:
+        vertex_positions = np.asarray(vertex_positions, dtype=np.float32)
+        vertex_positions -= vertex_positions.mean(axis=0, keepdims=True)
         
+    update_snapshot_data(snap.particles, vertex_positions, vertex_type_list)
+
+    set_membrane_topology(snap, vertex_type_list, bond_type_list, dihedral_type_list)
+
     
 def set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_list):
     """Set backbone bonds/angles"""
@@ -62,56 +72,81 @@ def set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_lis
     chromosome_ends = np.cumsum(chromosome_sizes)
     monomer_ids = np.arange(chromosome_ends[-1])
 
-    bonds = list(zip(monomer_ids[:-1], monomer_ids[1:]))
-    angles = list(zip(monomer_ids[:-2], monomer_ids[1:-1], monomer_ids[2:]))
+    backbone_bonds = list(zip(monomer_ids[:-1], monomer_ids[1:]))
+    backbone_angles = list(zip(monomer_ids[:-2], monomer_ids[1:-1], monomer_ids[2:]))
         
     snap.bonds.types = bond_type_list
     snap.angles.types = angle_type_list
 
     for end in chromosome_ends[::-1][1:]:
-        bonds.pop(end-1)
+        backbone_bonds.pop(end-1)
         
-        angles.pop(end-1)
-        angles.pop(end-2)
+        backbone_angles.pop(end-1)
+        backbone_angles.pop(end-2)
 
-    number_of_bonds = len(bonds)
-    number_of_angles = len(angles)
+    update_snapshot_data(snap.bonds, backbone_bonds, bond_type_list)
+    update_snapshot_data(snap.angles, backbone_angles, angle_type_list)
+	
 
-    snap.bonds.N = number_of_bonds
-    snap.angles.N = number_of_angles
+def set_membrane_topology(snap, vertex_type_list, bond_type_list, dihedral_type_list):
+    """Set membrane bonds/dihedrals"""
 
-    snap.bonds.group = np.asarray(bonds, dtype=np.uint32)
-    snap.bonds.typeid = np.zeros(number_of_bonds, dtype=np.uint32)
-
-    snap.angles.group = np.asarray(angles, dtype=np.uint32)
-    snap.angles.typeid = np.zeros(number_of_angles, dtype=np.uint32)
-
-
-def set_binders(snap, binder_positions,
-                binder_type_list=['Binders']):
-    """Set initial binder configuration"""
+    vertex_typeid = snap.particles.types.index(vertex_type_list[0])
+    vertex_ids = np.flatnonzero(snap.particles.typeid == vertex_typeid)
     
-    number_of_binders = binder_positions.shape[0]
-    binder_positions = binder_positions.astype(np.float32)
+    vertex_positions = snap.particles.position[vertex_ids]
+    hull = ConvexHull(vertex_positions)
+
+    vertex_offset = vertex_ids.min()
+    n_simplices = len(hull.simplices)
     
-    if snap.particles.N == 0:
-        raise RuntimeError("Cannot assign binders before chromosomes")
+    membrane_bonds = []
+    membrane_dihedrals = []
+
+    for i in range(n_simplices):
+        nb = hull.neighbors[i]
+        simp = hull.simplices[i] + vertex_offset
+
+        for j in range(3):
+            if nb[j] > i:
+                edge = np.delete(simp, j)
+                simp_nb = hull.simplices[nb[j]] + vertex_offset
+
+                k = set(simp_nb) - set(edge)
+                dihed = [simp[j]] + list(edge) + list(k)
+
+                membrane_bonds.append(edge)
+                membrane_dihedrals.append(dihed)
+				
+    update_snapshot_data(snap.bonds, membrane_bonds, bond_type_list)
+    update_snapshot_data(snap.dihedrals, membrane_dihedrals, dihedral_type_list)
+
+
+def update_snapshot_data(snapshot_data, new_data, new_type_list):
+    """Append new particles/bonds/angles/dihedrals to snapshot"""
+
+    number_of_entries = len(new_data)
+	
+    typeids = snapshot_data.typeid if snapshot_data.N else []
+    types = snapshot_data.types if snapshot_data.N else []
+
+    typeids = list(typeids) + [len(types)]*number_of_entries
+    types = list(types) + new_type_list
+
+    snapshot_data.types = types
+    snapshot_data.typeid = np.asarray(typeids, dtype=np.uint32)
     
-    number_of_particles = number_of_binders + snap.particles.N
-            
-    typeids = np.zeros(number_of_particles, dtype=np.uint32)
-    positions = np.zeros((number_of_particles, 3), dtype=np.float32)
+    if hasattr(snapshot_data, 'position'):
+        positions = snapshot_data.position if snapshot_data.N else []
+        positions = list(positions) + list(new_data)
+		
+        snapshot_data.position = np.asarray(positions, dtype=np.float32)
+        snapshot_data.diameter = np.ones(len(positions), dtype=np.float32)
+	
+    elif hasattr(snapshot_data, 'group'):
+        groups = snapshot_data.group if snapshot_data.N else []
+        groups = list(groups) + list(new_data)
 
-    typeids[:snap.particles.N] = snap.particles.typeid
-    typeids[snap.particles.N:] = len(snap.particles.types)
-    
-    positions[:snap.particles.N] = snap.particles.position
-    positions[snap.particles.N:] = binder_positions
-
-    snap.particles.N = number_of_particles
-    snap.particles.types.extend(binder_type_list)
-
-    snap.particles.typeid = typeids
-    snap.particles.position = positions
-
-    snap.particles.diameter = np.ones(number_of_particles, dtype=np.float32)
+        snapshot_data.group = np.asarray(groups, dtype=np.uint32)
+        
+    snapshot_data.N += number_of_entries
