@@ -32,7 +32,9 @@ def fresnel(snap,
             rescale_backbone_bonds=1.,
             show_chromosomes=False,
             show_compartments=False,
+            show_strains=False,
             show_loops=False,
+            color_array=None,
             **kwargs):
     """
     Wrapper around polykit.renderers.backends for HooMD rendering using the Fresnel library
@@ -52,25 +54,33 @@ def fresnel(snap,
     radii = snap.particles.diameter.copy() * 0.5
     radii[bond_mask] *= rescale_backbone_bonds
 
-    colorscale = np.zeros(snap.particles.N)
-
-    if show_chromosomes:
-        chrom_bounds = utils.get_chrom_bounds(snap)
-                
-        for i, bounds in enumerate(chrom_bounds):
-            colorscale[bounds[0]:bounds[1]+1] = i+1
-                        
-    elif show_loops:
-        loop_bounds = bonds[snap.bonds.typeid == 1]
-                
-        for i, bounds in enumerate(loop_bounds):
-            colorscale[bounds[0]:bounds[1]+1] = i+1
-                    
-    elif show_compartments:
-        colorscale = snap.particles.typeid.copy()
-            
+    if isinstance(color_array, np.ndarray):
+        colorscale = color_array
+        
     else:
-        colorscale = np.arange(snap.particles.N)
+        colorscale = np.zeros(snap.particles.N)
+    
+        if show_chromosomes:
+            chrom_bounds = utils.get_chrom_bounds(snap)
+                    
+            for i, bounds in enumerate(chrom_bounds):
+                colorscale[bounds[0]:bounds[1]+1] = i+1
+                            
+        elif show_loops:
+            loop_bounds = bonds[snap.bonds.typeid == 1]
+                    
+            for i, bounds in enumerate(loop_bounds):
+                colorscale[bounds[0]:bounds[1]+1] = i+1
+                        
+        elif show_compartments:
+            colorscale = snap.particles.typeid.copy()
+            
+        elif show_strains:
+            strains = np.diff(positions[bonds], axis=1)
+            colorscale = np.linalg.norm(strains, axis=-1).flatten()
+            
+        else:
+            colorscale = np.arange(snap.particles.N)
     
     colors = get_cmap(cmap)(Normalize()(colorscale))
 

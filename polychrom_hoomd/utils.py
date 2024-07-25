@@ -62,21 +62,26 @@ def unwrap_coordinates(snap, max_delta=1):
     """
 
     positions = snap.particles.position.copy()
-    box = np.asarray(snap.configuration.box)[None, :3]
+    
+    try:
+        chrom_bounds = get_chrom_bounds(snap)
+        
+        box = np.asarray(snap.configuration.box)[None, :3]
 
-    chrom_bounds = get_chrom_bounds(snap)
-
-    for bounds in chrom_bounds:
-        chrom_positions = positions[bounds[0]:bounds[1]+1]
-
-        if isinstance(snap.particles.image, np.ndarray):
-            telomere_image = snap.particles.image[bounds[0]]
-            chrom_positions += telomere_image*box
-            
-        for delta in range(1, max_delta+1):
-            bond_vectors = chrom_positions[delta:] - chrom_positions[:-delta]
-            PBC_shifts = np.round(bond_vectors / box)
-            
-            chrom_positions[delta:] -= np.cumsum(PBC_shifts, axis=0) * box
+        for bounds in chrom_bounds:
+            chrom_positions = positions[bounds[0]:bounds[1]+1]
+    
+            if isinstance(snap.particles.image, np.ndarray):
+                telomere_image = snap.particles.image[bounds[0]]
+                chrom_positions += telomere_image*box
+                
+            for delta in range(1, max_delta+1):
+                bond_vectors = chrom_positions[delta:] - chrom_positions[:-delta]
+                PBC_shifts = np.round(bond_vectors / box)
+                
+                chrom_positions[delta:] -= np.cumsum(PBC_shifts, axis=0) * box
+    
+    except ValueError:
+        pass
 
     return positions

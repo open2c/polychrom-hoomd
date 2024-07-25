@@ -34,8 +34,22 @@ class Thermo():
         except hoomd.error.DataAccessError:
             return 0.
 
+    @property
+    def potential_energy(self):
+        try:
+            return self.thermo.potential_energy
+        except hoomd.error.DataAccessError:
+            return 0.
 
-def get_logger(system, quantities=[]):
+    @property
+    def pressure(self):
+        try:
+            return self.pressure
+        except hoomd.error.DataAccessError:
+            return 0.
+            
+
+def get_logger(system, quantities=['kinetic_temperature']):
     """Compute logged quantities"""
 
     status = Status(system)
@@ -43,10 +57,11 @@ def get_logger(system, quantities=[]):
     
     logger = hoomd.logging.Logger(categories=['scalar', 'string'])
         
-    logger.add(system, quantities=['timestep', 'tps'] + quantities)
-    
+    logger.add(system, quantities=['timestep', 'tps'])
     logger[('Status', 'etr')] = (status, 'etr', 'string')
-    logger[('Thermo', 'kinetic_temperature')] = (thermo, 'kinetic_temperature', 'scalar')
+
+    for quantity in quantities:
+        logger[('Thermo', quantity)] = (thermo, quantity, thermo.thermo.loggables[quantity])
 
     return logger
 

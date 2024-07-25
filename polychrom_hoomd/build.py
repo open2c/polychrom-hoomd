@@ -3,11 +3,14 @@ import gsd.hoomd
 
 import numpy as np
 
+from . import log
 from scipy.spatial import ConvexHull
 
 
 def get_hoomd_device(notice_level=3):
-    """Initialise HOOMD on the CPU or GPU, based on availability"""
+    """
+    Initialise HOOMD on the CPU or GPU, based on availability
+    """
     
     try:
         device = hoomd.device.GPU(notice_level=notice_level)
@@ -39,14 +42,15 @@ def set_chromosomes(snap, monomer_positions, chromosome_sizes,
                     bond_type_list=['Backbone'],
                     angle_type_list=['Curvature'],
                     center=True):
-    """Set chromosome conformations and topology"""
+    """
+    Set chromosome conformations and topology
+    """
     
     if center:
         monomer_positions = np.asarray(monomer_positions, dtype=np.float32)
         monomer_positions -= monomer_positions.mean(axis=0, keepdims=True)
 	
     update_snapshot_data(snap.particles, monomer_positions, monomer_type_list)
-	
     set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_list)
 
 
@@ -55,19 +59,22 @@ def set_membrane_vertices(snap, vertex_positions,
                           bond_type_list=['Membrane'],
                           dihedral_type_list=['Curvature'],
                           center=True):
-    """Set chromosome conformations and topology"""
+    """
+    Set chromosome conformations and topology
+    """
 
     if center:
         vertex_positions = np.asarray(vertex_positions, dtype=np.float32)
         vertex_positions -= vertex_positions.mean(axis=0, keepdims=True)
         
     update_snapshot_data(snap.particles, vertex_positions, vertex_type_list)
-
     set_membrane_topology(snap, vertex_type_list, bond_type_list, dihedral_type_list)
 
     
 def set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_list):
-    """Set backbone bonds/angles"""
+    """
+    Set backbone bonds/angles
+    """
 
     chromosome_ends = np.cumsum(chromosome_sizes)
     monomer_ids = np.arange(chromosome_ends[-1])
@@ -80,7 +87,6 @@ def set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_lis
 
     for end in chromosome_ends[::-1][1:]:
         backbone_bonds.pop(end-1)
-        
         backbone_angles.pop(end-1)
         backbone_angles.pop(end-2)
 
@@ -89,7 +95,9 @@ def set_backbone_topology(snap, chromosome_sizes, bond_type_list, angle_type_lis
 	
 
 def set_membrane_topology(snap, vertex_type_list, bond_type_list, dihedral_type_list):
-    """Set membrane bonds/dihedrals"""
+    """
+    Set membrane bonds/dihedrals
+    """
 
     vertex_typeid = snap.particles.types.index(vertex_type_list[0])
     vertex_ids = np.flatnonzero(snap.particles.typeid == vertex_typeid)
@@ -123,7 +131,9 @@ def set_membrane_topology(snap, vertex_type_list, bond_type_list, dihedral_type_
 
 
 def update_snapshot_data(snapshot_data, new_data, new_type_list):
-    """Append new particles/bonds/angles/dihedrals to snapshot"""
+    """
+    Append new particles/bonds/angles/dihedrals to snapshot
+    """
 
     number_of_entries = len(new_data)
 	
@@ -150,3 +160,41 @@ def update_snapshot_data(snapshot_data, new_data, new_type_list):
         snapshot_data.group = np.asarray(groups, dtype=np.uint32)
         
     snapshot_data.N += number_of_entries
+    
+    
+def get_thomson_distribution(N, radius=1, box_length=50, steps=1e5):
+    """
+    Generate uniform spherical vertex distribution through Thomson relaxation
+    """
+    
+    hoomd_device = get_hoomd_device()
+
+    vertex_positions = np.random.randn(N, 3)
+    vertex_positions /= np.linalg.norm(vertex_positions, axis=1, keepdims=True) / radius
+    
+    snapshot = get_simulation_box(box_length=box_length)
+    update_snapshot_data(snapshot.particles, vertex_positions, ['Vertices'])
+
+    system = hoomd.Simulation(device=hoomd_device)
+    system.create_state_from_snapshot(snapshot)
+    
+    sphere = hoomd.md.manifold.Sphere(r=radius)
+    nve = hoomd.md.methods.rattle.NVE(filter=hoomd.filter.All(), manifold_constraint=sphere)
+    
+    nl = hoomd.md.nlist.Cell(buffer=0.4)
+    
+    coulomb_force = hoomd.md.pair.Yukawa(default_r_cut=2*radius, nlist=nl)
+    coulomb_force.params[('Vertices', 'Vertices')] = dict(epsilon=1.0, kappa=0.)
+
+    fire = hoomd.md.minimize.FIRE(dt=2e-5, methods=[nve], forces=[coulomb_force],
+                                  force_tol=5e-2, angmom_tol=5e-2, energy_tol=5e-2)
+    logger = log.get_logger(system, quantities=['potential_energy'])
+    
+    system.operations.integrator = fire
+    system.operations.writers.append(log.table_formatter(logger, period=5e3))
+    
+    system.run(steps)
+    
+    relaxed_snapshot = system.state.get_snapshot()
+
+    return relaxed_snapshot.particles.position
