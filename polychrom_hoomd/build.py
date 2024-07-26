@@ -162,7 +162,7 @@ def update_snapshot_data(snapshot_data, new_data, new_type_list):
     snapshot_data.N += number_of_entries
     
     
-def get_thomson_distribution(N, radius=1, box_length=50, steps=1e5):
+def get_thomson_distribution(N, radius=1, steps=1e5):
     """
     Generate uniform spherical vertex distribution through Thomson relaxation
     """
@@ -172,7 +172,7 @@ def get_thomson_distribution(N, radius=1, box_length=50, steps=1e5):
     vertex_positions = np.random.randn(N, 3)
     vertex_positions /= np.linalg.norm(vertex_positions, axis=1, keepdims=True) / radius
     
-    snapshot = get_simulation_box(box_length=box_length)
+    snapshot = get_simulation_box(box_length=5*radius)
     update_snapshot_data(snapshot.particles, vertex_positions, ['Vertices'])
 
     system = hoomd.Simulation(device=hoomd_device)
