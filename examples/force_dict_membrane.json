@@ -1,0 +1,26 @@
+{
+    "Bonded forces": {
+        "Membrane": {
+            "Rest length": 1.0,
+            "Type": "Harmonic",
+            "Wiggle distance": 0.01
+        }
+    },
+    "Dihedral forces": {
+        "Curvature": {
+            "Stiffness": 100,
+            "Type": "Harmonic"
+        }
+    },
+    "Non-bonded forces": {
+        "Repulsion": {
+            "Cutoff": 1.0,
+            "Matrix": {
+                "Vertices": {
+                    "Vertices": 100.0
+                }
+            },
+            "Type": "Polychrom"
+        }
+    }
+}

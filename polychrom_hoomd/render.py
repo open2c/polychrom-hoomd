@@ -30,10 +30,7 @@ def domain_viewer(snap, cmap='coolwarm', **kwargs):
 def fresnel(snap,
             cmap='viridis',
             rescale_backbone_bonds=1.,
-            show_chromosomes=False,
-            show_compartments=False,
-            show_strains=False,
-            show_loops=False,
+            show=None,
             color_array=None,
             **kwargs):
     """
@@ -60,22 +57,22 @@ def fresnel(snap,
     else:
         colorscale = np.zeros(snap.particles.N)
     
-        if show_chromosomes:
+        if show == "chromosomes":
             chrom_bounds = utils.get_chrom_bounds(snap)
                     
             for i, bounds in enumerate(chrom_bounds):
                 colorscale[bounds[0]:bounds[1]+1] = i+1
                             
-        elif show_loops:
+        elif show == "loops":
             loop_bounds = bonds[snap.bonds.typeid == 1]
                     
             for i, bounds in enumerate(loop_bounds):
                 colorscale[bounds[0]:bounds[1]+1] = i+1
                         
-        elif show_compartments:
+        elif show == "compartments":
             colorscale = snap.particles.typeid.copy()
             
-        elif show_strains:
+        elif show == "strains":
             strains = np.diff(positions[bonds], axis=1)
             colorscale = np.linalg.norm(strains, axis=-1).flatten()
             

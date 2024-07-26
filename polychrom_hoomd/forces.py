@@ -225,6 +225,34 @@ def get_angular_forces(width=1000, **force_dict):
     return angular_forces
 
 
+def get_dihedral_forces(**force_dict):
+    """Setup membrane dihedral potentials"""
+
+    dihedral_forces = []
+    
+    force_list = force_dict['Dihedral forces']
+    force_types = set(force['Type'] for force in force_list.values())
+    
+    for force_type in force_types:
+        if force_type in ["Harmonic"]:
+            dihedral_force = md.dihedral.Harmonic()
+
+            for dihedral_type, force in force_list.items():
+                if force['Type'] == force_type:
+                    k_bend = force['Stiffness']
+                    dihedral_force.params[dihedral_type] = dict(k=k_bend, d=1, n=1, phi0=0)
+                    
+                else:
+                    dihedral_force.params[dihedral_type] = dict(k=0, d=1, n=1, phi0=0)
+            
+            dihedral_forces.append(dihedral_force)
+                    
+        else:
+            raise NotImplementedError("Unsupported dihedral force: %s" % force_type)
+        
+    return dihedral_forces
+    
+
 def get_confinement_forces(**force_dict):
     """Setup confinement fields with (pseudo) hard-body repulsion"""
     
