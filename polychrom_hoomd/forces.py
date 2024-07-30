@@ -240,7 +240,9 @@ def get_dihedral_forces(**force_dict):
             for dihedral_type, force in force_list.items():
                 if force['Type'] == force_type:
                     k_bend = force['Stiffness']
-                    dihedral_force.params[dihedral_type] = dict(k=k_bend, d=1, n=1, phi0=0)
+                    phi0 = force['Phi_0']
+                    
+                    dihedral_force.params[dihedral_type] = dict(k=k_bend, d=1, n=1, phi0=phi0)
                     
                 else:
                     dihedral_force.params[dihedral_type] = dict(k=0, d=1, n=1, phi0=0)
