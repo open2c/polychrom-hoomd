@@ -27,7 +27,9 @@ def get_hoomd_device(notice_level=3):
 
 
 def get_simulation_box(box_length, pad=0):
-    """Setup simulation box and initial chromatin state"""
+    """
+    Setup simulation box and initial chromatin state
+    """
     
     snap = gsd.hoomd.Frame()
     
