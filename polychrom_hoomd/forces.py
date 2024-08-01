@@ -255,6 +255,27 @@ def get_dihedral_forces(**force_dict):
     return dihedral_forces
     
 
+def get_constant_forces(filters, **force_dict):
+    """Setup constant force fields"""
+    
+    constant_forces = []
+    
+    force_list = force_dict['External forces']['Constant']['Vector']
+    repulsion_force = force_dict['Non-bonded forces']['Repulsion']
+    
+    assert len(filters) == len(force_list)
+
+    for filter, force in zip(filters, force_list.values()):
+        constant_force = md.force.Constant(filter)
+
+        for t in repulsion_force['Matrix']:
+            constant_force.constant_force[t] = (force['x'], force['y'], force['z'])
+            
+        constant_forces.append(constant_force)
+    
+    return constant_forces
+    
+    
 def get_confinement_forces(**force_dict):
     """Setup confinement fields with (pseudo) hard-body repulsion"""
     
