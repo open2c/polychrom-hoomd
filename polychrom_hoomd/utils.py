@@ -13,7 +13,7 @@ def get_chrom_bounds(snap):
     bond_breaks, = np.nonzero(backbone_bonds[1:, 0] != backbone_bonds[:-1, 1])
     chrom_list = np.split(backbone_bonds, bond_breaks + 1)
     
-    chrom_bounds = np.zeros((len(chrom_list), 2), dtype=np.int32)
+    chrom_bounds = np.zeros((len(chrom_list), 2), dtype=np.uint32)
     
     for i, bonds in enumerate(chrom_list):
         chrom_bounds[i] = bonds[0, 0], bonds[-1, 1]
