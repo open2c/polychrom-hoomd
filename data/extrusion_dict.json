@@ -7,13 +7,13 @@
         "A": 0,
         "B": 0
     },
-    "CTCF_offtime": {
+    "CTCF_on_rate": {
         "A": 0.1,
         "B": 0.1
     },
-    "CTCF_lifetime": {
-        "A": 10,
-        "B": 10
+    "CTCF_off_rate": {
+        "A": 0.1,
+        "B": 0.1
     },
     "LEF_on_rate": {
         "A": 0.1,
