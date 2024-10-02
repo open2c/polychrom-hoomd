@@ -15,7 +15,8 @@ dependencies:
     - pyside2
     - ipython
     - notebook
+    - cupy
     - pip:
         - git+https://github.com/open2c/polykit.git
         - git+https://github.com/open2c/cooltools.git
-        - git+https://github.com/mtortora/lattice-translocators.git
+        - git+https://github.com/Fudenberg-Research-Group/discrete-time-extrusion.git

@@ -161,7 +161,7 @@ def get_bonded_forces(**force_dict):
             for bond_type, force in force_list.items():
                 if force['Type'] == force_type:
                     r0 = force['Rest length']
-                    k_stretch = 1./force['Wiggle distance']**2
+                    k_stretch = 1./force['Wiggle distance']**2 if force['Wiggle distance'] > 0 else 0
 
                     harmonic_force.params[bond_type] = dict(k=k_stretch, r0=r0)
                     

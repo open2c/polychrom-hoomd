@@ -1,9 +1,0 @@
-gsd==2.9
-numpy<1.24
-scipy>=0.16
-pandas>=0.19
-matplotlib>=2.0
-joblib
-pyside2
-ipython
-notebook

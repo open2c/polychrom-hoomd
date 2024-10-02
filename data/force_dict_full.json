@@ -15,6 +15,11 @@
             "Rest length": 0.5,
             "Type": "Harmonic",
             "Wiggle distance": 0.2
+        },
+        "LEF_dummy": {
+            "Rest length": 0,
+            "Type": "Harmonic",
+            "Wiggle distance": 0
         }
     },
     "External forces": {
