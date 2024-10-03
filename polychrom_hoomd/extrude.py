@@ -21,7 +21,7 @@ def update_topology(system, bond_list, local=True, thermalize=False):
         bond_array = np.asarray(bond_list, dtype=np.uint32)
         type_array = np.ones(len(bond_array),  dtype=np.uint32) * LEF_typeid
 
-        redundant_bonds = (bond_array[:, 1] - bond_array[:, 0] < 2)
+        redundant_bonds = (bond_array[:, 1] - bond_array[:, 0] < 1)
 		
         bond_array[redundant_bonds] = np.asarray([0,1], dtype=np.uint32)
         type_array[redundant_bonds] = LEF_dummy_typeid
