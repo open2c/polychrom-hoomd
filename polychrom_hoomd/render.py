@@ -43,8 +43,10 @@ def fresnel(snap,
     bond_mask = np.ones(snap.particles.N, dtype=bool)
     polymer_mask = np.ones(snap.particles.N, dtype=bool)
 
+    LEF_typeid = snap.bonds.types.index('LEF')
+
     polymer_mask[bonds] = False
-    bond_mask[bonds[snap.bonds.typeid > 0]] = False
+    bond_mask[bonds[snap.bonds.typeid == LEF_typeid]] = False
     
     bond_mask[polymer_mask] = False
 
@@ -64,7 +66,7 @@ def fresnel(snap,
                 colorscale[bounds[0]:bounds[1]+1] = i+1
                             
         elif show == "loops":
-            loop_bounds = bonds[snap.bonds.typeid == 1]
+            loop_bounds = bonds[snap.bonds.typeid == LEF_typeid]
                     
             for i, bounds in enumerate(loop_bounds):
                 colorscale[bounds[0]:bounds[1]+1] = i+1
