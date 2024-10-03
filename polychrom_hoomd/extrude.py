@@ -6,8 +6,9 @@ import polychrom_hoomd.utils as utils
 
 try:
     import cupy as cp
+    
 except ImportError:
-    warnings.warn("Could not load CuPy library - disabling local topology updates")
+    warnings.warn("Could not load CuPy library - local topology updates unavailable")
 
 
 def update_topology(system, bond_list, local=True, thermalize=False):
@@ -23,7 +24,7 @@ def update_topology(system, bond_list, local=True, thermalize=False):
 
         redundant_bonds = (bond_array[:, 1] - bond_array[:, 0] < 1)
 		
-        bond_array[redundant_bonds] = np.asarray([0,1], dtype=np.uint32)
+        bond_array[redundant_bonds] = np.asarray([0, 1], dtype=np.uint32)
         type_array[redundant_bonds] = LEF_dummy_typeid
 
     else:
@@ -34,8 +35,8 @@ def update_topology(system, bond_list, local=True, thermalize=False):
         try:
             _update_topology_local(system, bond_array, type_array, LEF_typeid, LEF_dummy_typeid)
 
-        except:
-            warnings.warn("Reverting to non-local topology update")
+        except Exception as e:
+            warnings.warn("%s - reverting to non-local topology update" % e)
             _update_topology_nonlocal(system, bond_array, type_array, LEF_typeid, LEF_dummy_typeid)
 
     else:
@@ -98,5 +99,4 @@ def _update_topology_local(system, bond_array, type_array, type_id, dummy_id):
             local_snap.bonds.typeid[ids] = type_array
 
         else:
-            warnings.warn("Unable to dynamically resize bond arrays on the GPU")
-            raise
+            raise RuntimeError("Unable to dynamically resize bond arrays on the GPU")
