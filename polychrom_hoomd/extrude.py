@@ -7,7 +7,7 @@ import polychrom_hoomd.utils as utils
 try:
     import cupy as cp
 except ImportError:
-    warnings.warn("Could not load cupy library - disabling local topology updates")
+    warnings.warn("Could not load CuPy library - disabling local topology updates")
 
 
 def update_topology(system, bond_list, local=True, thermalize=False):
