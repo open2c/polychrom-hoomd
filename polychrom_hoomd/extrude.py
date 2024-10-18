@@ -1,3 +1,4 @@
+import os
 import hoomd
 import warnings
 
@@ -7,7 +8,9 @@ import polychrom_hoomd.utils as utils
 try:
     import cupy as cp
     
-    with open('kernels/lef_neighbor_search.cuh', 'r') as cuda_file:
+    dpath = os.path.dirname(os.path.abspath(__file__))
+    
+    with open(f'{dpath}/kernels/lef_neighbor_search.cuh', 'r') as cuda_file:
         cuda_code = cuda_file.read()
         cuda_module = cp.RawModule(code=cuda_code)
     
@@ -114,10 +117,10 @@ def update_topology_3D(system, neighbor_list, leg_off_rate, threads_per_block=25
     LEF_typeid = system.state.bond_types.index('LEF')
 
     with system.state.gpu_local_snapshot as local_snap:
-		N = local_snap.bonds.N
         bond_ids = cp.array(local_snap.bonds.typeid, copy=False)
-        
         is_bound = cp.equal(bond_ids, LEF_typeid)
+        
+        N = int(bond_ids.size)
         N_bound = int(cp.count_nonzero(is_bound))
         
         rng_left = cp.random.random(N_bound, dtype=np.float32)
@@ -127,13 +130,13 @@ def update_topology_3D(system, neighbor_list, leg_off_rate, threads_per_block=25
         unbind_right = cp.less(rng_right, leg_off_rate)
         
         unbind = cp.logical_and(unbind_left, unbind_right)
-        
+
         unbind_left = cp.logical_and(unbind_left, cp.logical_not(unbind))
         unbind_right = cp.logical_and(unbind_right, cp.logical_not(unbind))
-                
+        
         anchors = cp.zeros(N, dtype=cp.int32)
         rng = cp.random.random(N, dtype=np.float32)
-
+        
         anchors[is_bound] = cp.where(unbind_right, 1, anchors[is_bound])
         anchors[is_bound] = cp.where(unbind_left, -1, anchors[is_bound])
 
