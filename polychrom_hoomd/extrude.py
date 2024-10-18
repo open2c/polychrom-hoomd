@@ -112,7 +112,7 @@ def _update_topology_local(system, bond_array, type_array, type_id, dummy_id):
 
 
 def update_topology_3D(system, neighbor_list, leg_off_rate, threads_per_block=256):
-    """Attempt random 3D cohesin moves on the GPU"""
+    """Attempt stochastic 3D cohesin moves on the GPU"""
 
     LEF_typeid = system.state.bond_types.index('LEF')
 
