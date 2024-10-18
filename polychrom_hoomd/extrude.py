@@ -7,7 +7,6 @@ import polychrom_hoomd.utils as utils
 
 try:
     import cupy as cp
-    
     dpath = os.path.dirname(os.path.abspath(__file__))
     
     with open(f'{dpath}/kernels/lef_neighbor_search.cuh', 'r') as cuda_file:
