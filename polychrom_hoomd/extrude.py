@@ -16,7 +16,7 @@ try:
     _single_leg_search = cuda_module.get_function('_single_leg_search')
     
 except ImportError:
-    warnings.warn("Could not load CuPy library - local topology updates unavailable")
+    warnings.warn("Could not load CuPy library - local/3D topology updates unavailable")
 
 
 def update_topology(system, bond_list, local=True, thermalize=False):
