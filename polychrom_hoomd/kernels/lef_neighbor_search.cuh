@@ -27,7 +27,7 @@ __global__ void _single_leg_search(
     unsigned long head = heads[rtag_i];
 
     if (nn > 0) {
-        unsigned int id_j = (unsigned int) (rng[i]*nn);
+        unsigned int id_j = (unsigned int) (rng[i] * nn);
         
         unsigned int rtag_j = nlist[head + id_j];
         unsigned int tag_j = tags[rtag_j];
