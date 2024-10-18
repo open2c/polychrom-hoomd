@@ -7,6 +7,12 @@ import polychrom_hoomd.utils as utils
 try:
     import cupy as cp
     
+    with open('kernels/lef_neighbor_search.cuh', 'r') as cuda_file:
+        cuda_code = cuda_file.read()
+        cuda_module = cp.RawModule(code=cuda_code)
+    
+    _single_leg_search = cuda_module.get_function('_single_leg_search')
+    
 except ImportError:
     warnings.warn("Could not load CuPy library - local topology updates unavailable")
 
@@ -17,7 +23,7 @@ def update_topology(system, bond_list, local=True, thermalize=False):
     LEF_typeid = system.state.bond_types.index('LEF')
     LEF_dummy_typeid = system.state.bond_types.index('LEF_dummy')
     
-    if bond_list:
+    if len(bond_list) > 0:
         # Discard contiguous loops
         bond_array = np.asarray(bond_list, dtype=np.uint32)
         type_array = np.ones(len(bond_array),  dtype=np.uint32) * LEF_typeid
@@ -100,3 +106,50 @@ def _update_topology_local(system, bond_array, type_array, type_id, dummy_id):
 
         else:
             raise RuntimeError("Unable to dynamically resize bond arrays on the GPU")
+
+
+def update_topology_3D(system, neighbor_list, leg_off_rate, threads_per_block=256):
+    """Attempt random 3D cohesin moves on the GPU"""
+
+    LEF_typeid = system.state.bond_types.index('LEF')
+
+    with system.state.gpu_local_snapshot as local_snap:
+		N = local_snap.bonds.N
+        bond_ids = cp.array(local_snap.bonds.typeid, copy=False)
+        
+        is_bound = cp.equal(bond_ids, LEF_typeid)
+        N_bound = int(cp.count_nonzero(is_bound))
+        
+        rng_left = cp.random.random(N_bound, dtype=np.float32)
+        rng_right = cp.random.random(N_bound, dtype=np.float32)
+        
+        unbind_left = cp.less(rng_left, leg_off_rate)
+        unbind_right = cp.less(rng_right, leg_off_rate)
+        
+        unbind = cp.logical_and(unbind_left, unbind_right)
+        
+        unbind_left = cp.logical_and(unbind_left, cp.logical_not(unbind))
+        unbind_right = cp.logical_and(unbind_right, cp.logical_not(unbind))
+                
+        anchors = cp.zeros(N, dtype=cp.int32)
+        rng = cp.random.random(N, dtype=np.float32)
+
+        anchors[is_bound] = cp.where(unbind_right, 1, anchors[is_bound])
+        anchors[is_bound] = cp.where(unbind_left, -1, anchors[is_bound])
+
+        groups = local_snap.bonds.group._coerce_to_ndarray()
+        tags = local_snap.particles.tag._coerce_to_ndarray()
+        rtags = local_snap.particles.rtag._coerce_to_ndarray()
+        
+        with neighbor_list.gpu_local_nlist_arrays as data:
+            nlist = data.nlist._coerce_to_ndarray()
+            n_neigh = data.n_neigh._coerce_to_ndarray()
+            head_list = data.head_list._coerce_to_ndarray()
+            
+            num_blocks = (N+threads_per_block-1) // threads_per_block
+            
+            _single_leg_search(
+                (num_blocks,),
+                (threads_per_block,),
+                (N, nlist, n_neigh, head_list, tags, rtags, anchors, rng, groups)
+            )
