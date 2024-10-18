@@ -122,8 +122,8 @@ def update_topology_3D(system, neighbor_list, leg_off_rate, threads_per_block=25
         N = int(bond_ids.size)
         N_bound = int(cp.count_nonzero(is_bound))
         
-        rng_left = cp.random.random(N_bound, dtype=np.float32)
-        rng_right = cp.random.random(N_bound, dtype=np.float32)
+        rng_left = cp.random.random(N_bound, dtype=cp.float32)
+        rng_right = cp.random.random(N_bound, dtype=cp.float32)
         
         unbind_left = cp.less(rng_left, leg_off_rate)
         unbind_right = cp.less(rng_right, leg_off_rate)
@@ -134,7 +134,7 @@ def update_topology_3D(system, neighbor_list, leg_off_rate, threads_per_block=25
         unbind_right = cp.logical_and(unbind_right, cp.logical_not(unbind))
         
         anchors = cp.zeros(N, dtype=cp.int32)
-        rng = cp.random.random(N, dtype=np.float32)
+        rng = cp.random.random(N, dtype=cp.float32)
         
         anchors[is_bound] = cp.where(unbind_right, 1, anchors[is_bound])
         anchors[is_bound] = cp.where(unbind_left, -1, anchors[is_bound])
