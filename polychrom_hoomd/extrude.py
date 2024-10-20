@@ -97,14 +97,14 @@ def _update_topology_local(system, bond_array, type_array, type_id, dummy_id):
     with system.state.gpu_local_snapshot as local_snap:
         bond_ids = cp.array(local_snap.bonds.typeid, copy=False)
 
-        LEF_ids = cp.equal(bond_ids, type_id)
-        LEF_dummy_ids = cp.equal(bond_ids, dummy_id)
+        is_bound = cp.equal(bond_ids, type_id)
+        is_unbound = cp.equal(bond_ids, dummy_id)
 
-        ids = cp.logical_or(LEF_ids, LEF_dummy_ids)
+        is_LEF = cp.logical_or(is_bound, is_unbound)
 
-        if bond_array.shape[0] == type_array.shape[0] == cp.count_nonzero(ids):
-            local_snap.bonds.group[ids] = bond_array
-            local_snap.bonds.typeid[ids] = type_array
+        if bond_array.shape[0] == type_array.shape[0] == cp.count_nonzero(is_LEF):
+            local_snap.bonds.group[is_LEF] = bond_array
+            local_snap.bonds.typeid[is_LEF] = type_array
 
         else:
             raise RuntimeError("Unable to dynamically resize bond arrays on the GPU")
