@@ -1,7 +1,7 @@
 {
     "CTCF_facestall": {
-        "A": 0.9,
-        "B": 0.9
+        "A": 1.0,
+        "B": 1.0
     },
     "CTCF_backstall": {
         "A": 0,
@@ -12,20 +12,20 @@
         "B": 0.1
     },
     "CTCF_off_rate": {
-        "A": 0.1,
-        "B": 0.1
+        "A": 0.001,
+        "B": 0.001
     },
     "LEF_on_rate": {
-        "A": 0.1,
-        "B": 0.1
+        "A": 0.0022592978797358358,
+        "B": 0.0022592978797358358
     },
     "LEF_off_rate": {
-        "A": 0.02,
-        "B": 0.02
+        "A": 0.0012165450121654502,
+        "B": 0.0012165450121654502
     },
     "LEF_stalled_off_rate": {
-        "A": 0.02,
-        "B": 0.02
+        "A": 0.0012165450121654502,
+        "B": 0.0012165450121654502
     },
     "LEF_pause": {
         "A": 0,
@@ -33,12 +33,13 @@
     },
     "LEF_states": {},
     "LEF_transition_rates": {},
-    "LEF_separation": 100,
+    "LEF_separation": 30,
+	"mode": "symmetric",
     "sites_per_monomer": 1,
-    "monomers_per_replica": 15000,
+    "monomers_per_replica": 30000,
     "number_of_replica": 1,
     "steps": 1000,
     "dummy_steps": 500,
-    "velocity_multiplier": 1,
+    "velocity_multiplier": 0.2,
     "3D_to_1D_steps": 200
 }
