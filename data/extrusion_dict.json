@@ -34,7 +34,7 @@
     "LEF_states": {},
     "LEF_transition_rates": {},
     "LEF_separation": 30,
-	"mode": "symmetric",
+    "mode": "symmetric",
     "sites_per_monomer": 1,
     "monomers_per_replica": 30000,
     "number_of_replica": 1,
