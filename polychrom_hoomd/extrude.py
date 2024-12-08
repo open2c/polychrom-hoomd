@@ -163,8 +163,8 @@ def _get_lef_anchors(bond_ids, type_id, leg_off_rate):
     is_bound = xp.equal(bond_ids, type_id)
     N_bound = int(xp.count_nonzero(is_bound))
         
-    rng_left = xp.random.random(N_bound, dtype=xp.float32)
-    rng_right = xp.random.random(N_bound, dtype=xp.float32)
+    rng_left = xp.random.random(N_bound)
+    rng_right = xp.random.random(N_bound)
         
     unbind_left = xp.less(rng_left, leg_off_rate)
     unbind_right = xp.less(rng_right, leg_off_rate)
