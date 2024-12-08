@@ -35,7 +35,7 @@ def update_topology(system, bond_list, local=True, thermalize=False):
         
         ids = xp.random.randint(low=0, high=system.state.N_particles-1, size=n_prune, dtype=xp.int32)
 		
-        bond_array[redundant_bonds] = xp.stack((ids, ids+1)).T
+        bond_array[redundant_bonds] = xp.stack((ids, ids+1), axis=1)
         type_array[redundant_bonds] = LEF_dummy_typeid
 
     else:
