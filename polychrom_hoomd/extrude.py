@@ -20,25 +20,27 @@ except ImportError:
 
 
 def update_topology(system, bond_list, local=True, thermalize=False):
-    """Update topology on either GPU or xpU, based on availability"""
+    """Update topology on either GPU or CPU, based on availability"""
 
     LEF_typeid = system.state.bond_types.index('LEF')
     LEF_dummy_typeid = system.state.bond_types.index('LEF_dummy')
     
     if len(bond_list) > 0:
         # Discard contiguous loops
-		
-        bond_array = xp.asarray(bond_list, dtype=xp.uint32)
-        type_array = xp.ones(len(bond_array),  dtype=xp.uint32) * LEF_typeid
+        bond_array = xp.asarray(bond_list, dtype=xp.int32)
+        type_array = xp.full(len(bond_array), LEF_typeid, dtype=xp.int32)
 
-        redundant_bonds = (bond_array[:, 1] - bond_array[:, 0] < 1)
+        redundant_bonds = xp.less(bond_array[:, 1] - bond_array[:, 0], 1)
+        n_prune = int(xp.count_nonzero(redundant_bonds))
+        
+        ids = xp.random.randint(low=0, high=system.state.N_particles-1, size=n_prune, dtype=xp.int32)
 		
-        bond_array[redundant_bonds] = xp.asarray([0, 1], dtype=xp.uint32)
+        bond_array[redundant_bonds] = xp.stack((ids, ids+1)).T
         type_array[redundant_bonds] = LEF_dummy_typeid
 
     else:
-        bond_array = xp.empty(0, dtype=xp.uint32)
-        type_array = xp.empty(0, dtype=xp.uint32)
+        bond_array = xp.empty(0, dtype=xp.int32)
+        type_array = xp.empty(0, dtype=xp.int32)
 
     if local:
         try:
@@ -57,7 +59,7 @@ def update_topology(system, bond_list, local=True, thermalize=False):
 
 
 def _update_topology_nonlocal(system, bond_array, type_array, type_id, dummy_id):
-    """Update topology on the xpU"""
+    """Update topology on the CPU"""
     
     snap = system.state.get_snapshot()
     snap_gsd = utils.get_gsd_snapshot(snap)
@@ -77,8 +79,8 @@ def _update_topology_nonlocal(system, bond_array, type_array, type_id, dummy_id)
     typeids[:n_non_LEF] = typeid_array[non_LEF_ids]
 
     if n_LEF:
-        groups[n_non_LEF:] = xp.asarray(bond_array)
-        typeids[n_non_LEF:] = xp.asarray(type_array)
+        groups[n_non_LEF:] = xp.asarray(bond_array).astype(xp.uint32)
+        typeids[n_non_LEF:] = xp.asarray(type_array).astype(xp.uint32)
 
     # Bond resizing in HOOMD v3 requires full array reassignment
     snap_gsd.bonds.N = n_non_LEF + n_LEF
@@ -108,8 +110,8 @@ def _update_topology_local(system, bond_array, type_array, type_id, dummy_id):
         is_LEF = xp.logical_or(is_bound, is_unbound)
 
         if bond_array.shape[0] == type_array.shape[0] == xp.count_nonzero(is_LEF):
-            local_snap.bonds.group[is_LEF] = bond_array
-            local_snap.bonds.typeid[is_LEF] = type_array
+            local_snap.bonds.group[is_LEF] = bond_array.astype(xp.uint32)
+            local_snap.bonds.typeid[is_LEF] = type_array.astype(xp.uint32)
 
         else:
             raise RuntimeError("Unable to dynamically resize bond arrays on the GPU")
