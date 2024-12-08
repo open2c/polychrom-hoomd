@@ -79,8 +79,8 @@ def _update_topology_nonlocal(system, bond_array, type_array, type_id, dummy_id)
     typeids[:n_non_LEF] = typeid_array[non_LEF_ids]
 
     if n_LEF:
-        groups[n_non_LEF:] = xp.asarray(bond_array).astype(xp.uint32)
-        typeids[n_non_LEF:] = xp.asarray(type_array).astype(xp.uint32)
+        groups[n_non_LEF:] = xp.asarray(bond_array, dtype=xp.uint32)
+        typeids[n_non_LEF:] = xp.asarray(type_array, dtype=xp.uint32)
 
     # Bond resizing in HOOMD v3 requires full array reassignment
     snap_gsd.bonds.N = n_non_LEF + n_LEF
