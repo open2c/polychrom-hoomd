@@ -128,7 +128,7 @@ def update_topology_3D(system, neighbor_list, leg_off_rate, cutoff, threads_per_
         anchors = _get_lef_anchors(bond_ids, LEF_typeid, leg_off_rate)
         
         N = int(bond_ids.size)
-        rng = xp.random.random(N, dtype=xp.float32)
+        rng = xp.random.random(N).astype(xp.float32)
 
         groups = local_snap.bonds.group._coerce_to_ndarray()
         tags = local_snap.particles.tag._coerce_to_ndarray()
