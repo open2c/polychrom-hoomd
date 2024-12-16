@@ -10,7 +10,7 @@ try:
         
     with open(f'{dpath}/kernels/lef_neighbor_search.cuh', 'r') as cuda_file:
         cuda_code = cuda_file.read()
-        cuda_module = xp.RawModule(code=cuda_code)
+        cuda_module = xp.RawModule(code=cuda_code, options=('--use_fast_math',))
     
     _single_leg_search = cuda_module.get_function('_single_leg_search')
     
