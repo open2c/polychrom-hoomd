@@ -43,7 +43,7 @@ def fresnel(snap,
     bond_mask = np.ones(snap.particles.N, dtype=bool)
     polymer_mask = np.ones(snap.particles.N, dtype=bool)
 
-    LEF_typeid = snap.bonds.types.index('LEF')
+    LEF_typeid = snap.bonds.types.index('LEF') if 'LEF' in snap.bonds.types else -1
 
     polymer_mask[bonds] = False
     bond_mask[bonds[snap.bonds.typeid == LEF_typeid]] = False
