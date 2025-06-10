@@ -8,12 +8,13 @@ try:
     import cupy as xp
     dpath = os.path.dirname(os.path.abspath(__file__))
         
-    with open(f'{dpath}/kernels/lef_neighbor_search.cuh', 'r') as cuda_file:
+    with open(f'{dpath}/kernels/lef_spatial_utils.cuh', 'r') as cuda_file:
         cuda_code = cuda_file.read()
         cuda_module = xp.RawModule(code=cuda_code, options=('--use_fast_math',))
     
     _single_leg_search = cuda_module.get_function('_single_leg_search')
-    
+    _harmonic_boltzmann_filter = cuda_module.get_function('_harmonic_boltzmann_filter')
+
 except ImportError:
     import numpy as xp
     warnings.warn("Could not load CuPy library - local/3D topology updates unavailable")
@@ -27,7 +28,7 @@ def update_topology(system, bond_list, local=True, thermalize=False):
     
     if len(bond_list) > 0:
         # Discard contiguous loops
-        bond_array = xp.asarray(bond_list, dtype=xp.int32)
+        bond_array = xp.array(bond_list, dtype=xp.int32)
         type_array = xp.full(len(bond_array), LEF_typeid, dtype=xp.int32)
 
         redundant_bonds = xp.less(bond_array[:, 1] - bond_array[:, 0], 1)
@@ -58,65 +59,41 @@ def update_topology(system, bond_list, local=True, thermalize=False):
         system.state.thermalize_particle_momenta(filter=hoomd.filter.All(), kT=1.0)
 
 
-def _update_topology_nonlocal(system, bond_array, type_array, type_id, dummy_id):
-    """Update topology on the CPU"""
+def boltzmann_criterion(system, current_bond_list, trial_bond_list, step_dist=0.4, threads_per_block=256):
+    """Apply (3D) Boltzmann criterion to list of attempted (1D) extruder moves, based on harmonic bond potential"""
+
+    sigma2 = xp.float64(step_dist**2) * 2.
+    hbox = xp.asarray(system.state.box.L, dtype=xp.float64) / 2.
+
+    old_bond_array = xp.asarray(current_bond_list, dtype=xp.int32)
+    new_bond_array = xp.asarray(trial_bond_list, dtype=xp.int32)
     
-    snap = system.state.get_snapshot()
-    snap_gsd = utils.get_gsd_snapshot(snap)
+    if new_bond_array.shape[0] != old_bond_array.shape[0]:
+        raise RuntimeError("Extruder number in current and trial positions must match")
 
-    non_LEF_ids = xp.asarray((snap.bonds.typeid != type_id)*(snap.bonds.typeid != dummy_id))
-		    
-    n_LEF = bond_array.shape[0]
-    n_non_LEF = int(xp.count_nonzero(xp.asarray(non_LEF_ids)))
-        
-    groups = xp.zeros((n_non_LEF+n_LEF, 2), dtype=xp.uint32)
-    typeids = xp.zeros(n_non_LEF+n_LEF, dtype=xp.uint32)
-    
-    group_array = xp.asarray(snap.bonds.group, dtype=xp.uint32)
-    typeid_array = xp.asarray(snap.bonds.typeid, dtype=xp.uint32)
-
-    groups[:n_non_LEF] = group_array[non_LEF_ids]
-    typeids[:n_non_LEF] = typeid_array[non_LEF_ids]
-
-    if n_LEF:
-        groups[n_non_LEF:] = xp.asarray(bond_array, dtype=xp.uint32)
-        typeids[n_non_LEF:] = xp.asarray(type_array, dtype=xp.uint32)
-
-    # Bond resizing in HOOMD v3 requires full array reassignment
-    snap_gsd.bonds.N = n_non_LEF + n_LEF
-
-    snap_gsd.bonds.group = groups.get() if xp.__name__ == 'cupy' else groups
-    snap_gsd.bonds.typeid = typeids.get() if xp.__name__ == 'cupy' else typeids
-
-    # Configuration step/box data requires manual setting as of gsd v2.8
-    snap_gsd.configuration.step = system.timestep
-    snap_gsd.configuration.box = snap.configuration.box
-    
-    # Load snapshot and re-thermalize, if required
-    snap = hoomd.Snapshot.from_gsd_snapshot(snap_gsd, snap.communicator)
-    
-    system.state.set_snapshot(snap)
-
-
-def _update_topology_local(system, bond_array, type_array, type_id, dummy_id):
-    """Update topology locally on the GPU"""
-    		
     with system.state.gpu_local_snapshot as local_snap:
-        bond_ids = xp.asarray(local_snap.bonds.typeid)
+        N = int(new_bond_array.shape[0])
+        rng = xp.random.random(N)
+        
+        rtags = local_snap.particles.rtag._coerce_to_ndarray()
+        positions = local_snap.particles.position._coerce_to_ndarray()
+        
+        rng = rng.astype(xp.float64)
+        positions = positions.astype(xp.float64)
 
-        is_bound = xp.equal(bond_ids, type_id)
-        is_unbound = xp.equal(bond_ids, dummy_id)
-
-        is_LEF = xp.logical_or(is_bound, is_unbound)
-
-        if bond_array.shape[0] == type_array.shape[0] == xp.count_nonzero(is_LEF):
-            local_snap.bonds.group[is_LEF] = bond_array.astype(xp.uint32)
-            local_snap.bonds.typeid[is_LEF] = type_array.astype(xp.uint32)
-
-        else:
-            raise RuntimeError("Unable to dynamically resize bond arrays on the GPU")
-
-
+        num_blocks = (N+threads_per_block-1) // threads_per_block
+            
+        _harmonic_boltzmann_filter(
+			(num_blocks,),
+			(threads_per_block,),
+			(N, sigma2,
+			 rng, hbox, positions, rtags,
+			 old_bond_array, new_bond_array)
+        )
+        
+    return new_bond_array
+    
+   
 def update_topology_3D(system, neighbor_list, leg_off_rate, cutoff, threads_per_block=256):
     """Attempt stochastic 3D cohesin moves on the GPU"""
 
@@ -155,6 +132,69 @@ def update_topology_3D(system, neighbor_list, leg_off_rate, cutoff, threads_per_
                  anchors, rng,
                  groups)
             )
+            
+def _update_topology_nonlocal(system, bond_array, type_array, type_id, dummy_id):
+    """Update topology on the CPU"""
+    
+    snap = system.state.get_snapshot()
+    snap_gsd = utils.get_gsd_snapshot(snap)
+
+    bond_ids = xp.asarray(snap.bonds.typeid)
+
+    is_not_bound = xp.not_equal(bond_ids, type_id)
+    is_not_unbound = xp.not_equal(bond_ids, dummy_id)
+
+    is_not_LEF = xp.logical_and(is_not_bound, is_not_unbound)
+
+    n_LEF = bond_array.shape[0]
+    n_non_LEF = int(xp.count_nonzero(is_not_LEF))
+        
+    groups = xp.zeros((n_non_LEF+n_LEF, 2), dtype=xp.uint32)
+    typeids = xp.zeros(n_non_LEF+n_LEF, dtype=xp.uint32)
+    
+    group_array = xp.asarray(snap.bonds.group, dtype=xp.uint32)
+    typeid_array = xp.asarray(snap.bonds.typeid, dtype=xp.uint32)
+
+    groups[:n_non_LEF] = group_array[is_not_LEF]
+    typeids[:n_non_LEF] = typeid_array[is_not_LEF]
+
+    if n_LEF:
+        groups[n_non_LEF:] = xp.asarray(bond_array, dtype=xp.uint32)
+        typeids[n_non_LEF:] = xp.asarray(type_array, dtype=xp.uint32)
+
+    # Bond resizing in HOOMD v3 requires full array reassignment
+    snap_gsd.bonds.N = n_non_LEF + n_LEF
+
+    snap_gsd.bonds.group = groups.get() if xp.__name__ == 'cupy' else groups
+    snap_gsd.bonds.typeid = typeids.get() if xp.__name__ == 'cupy' else typeids
+
+    # Configuration step/box data requires manual setting as of gsd v2.8
+    snap_gsd.configuration.step = system.timestep
+    snap_gsd.configuration.box = snap.configuration.box
+    
+    # Load snapshot and re-thermalize, if required
+    snap = hoomd.Snapshot.from_gsd_snapshot(snap_gsd, snap.communicator)
+    
+    system.state.set_snapshot(snap)
+
+
+def _update_topology_local(system, bond_array, type_array, type_id, dummy_id):
+    """Update topology locally on the GPU"""
+    		
+    with system.state.gpu_local_snapshot as local_snap:
+        bond_ids = xp.asarray(local_snap.bonds.typeid)
+
+        is_bound = xp.equal(bond_ids, type_id)
+        is_unbound = xp.equal(bond_ids, dummy_id)
+
+        is_LEF = xp.logical_or(is_bound, is_unbound)
+
+        if bond_array.shape[0] == type_array.shape[0] == xp.count_nonzero(is_LEF):
+            local_snap.bonds.group[is_LEF] = bond_array.astype(xp.uint32)
+            local_snap.bonds.typeid[is_LEF] = type_array.astype(xp.uint32)
+
+        else:
+            raise RuntimeError("Unable to dynamically resize bond arrays on the GPU")
 
 
 def _get_lef_anchors(bond_ids, type_id, leg_off_rate):
