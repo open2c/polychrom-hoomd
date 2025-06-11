@@ -62,7 +62,7 @@ def update_topology(system, bond_list, local=True, thermalize=False):
 def boltzmann_criterion(system, current_bond_list, trial_bond_list, step_dist=0.4, rest_dist=0.5, threads_per_block=256):
     """Apply (3D) Boltzmann criterion to list of attempted (1D) extruder moves, based on harmonic bond potential"""
 
-	mu = xp.float64(rest_dist)
+    mu = xp.float64(rest_dist)
     sigma2 = xp.float64(step_dist**2) * 2.
     
     hbox = xp.asarray(system.state.box.L, dtype=xp.float64) / 2.
