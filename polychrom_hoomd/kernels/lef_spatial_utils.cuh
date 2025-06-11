@@ -1,6 +1,7 @@
 extern "C" {
 __global__ void _harmonic_boltzmann_filter(
         const unsigned int N,
+        const double mu,
         const double sigma2,
         const double* rng,
         const double* hdims,
@@ -45,8 +46,8 @@ __global__ void _harmonic_boltzmann_filter(
             dy -= (copysign(hdim->y, dy-hdim->y) + copysign(hdim->y, dy+hdim->y));
             dz -= (copysign(hdim->z, dz-hdim->z) + copysign(hdim->z, dz+hdim->z));
 
-            double r2 = dx*dx + dy*dy + dz*dz;
-            delta_r2 += ((j==0) ? r2 : -r2);
+            double delta_r = sqrt(dx*dx + dy*dy + dz*dz) - mu;
+            delta_r2 += ((j==0) ? delta_r*delta_r : -delta_r*delta_r);
         }
         
         double boltzmann_weight = exp(delta_r2/sigma2);
