@@ -20,6 +20,7 @@ __global__ void _harmonic_boltzmann_filter(
 
     if ( (old_bond[i].x == -1) || (old_bond[i].y == -1) )
         return;
+
      if ( (new_bond[i].x == -1) || (new_bond[i].y == -1) )
         return;   
     
@@ -55,6 +56,7 @@ __global__ void _harmonic_boltzmann_filter(
         if ( rng[i] > boltzmann_weight ) {
             if ( has_moved_left )
                 new_bond[i].x = old_bond[i].x;
+
             if ( has_moved_right )
                 new_bond[i].y = old_bond[i].y;
         }
