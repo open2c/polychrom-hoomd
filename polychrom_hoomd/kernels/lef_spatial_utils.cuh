@@ -81,15 +81,14 @@ __global__ void _single_leg_search(
 
     if (i >= N)
         return;
+
     if (anchors[i] == 0)
         return;
 
     uint2* bond = (uint2*) bonds;
-    
-    bool is_left_anchor = (anchors[i] == 1);
 
-    unsigned int tag_i = is_left_anchor ? bond[i].x : bond[i].y;
-    unsigned int tag_j = is_left_anchor ? bond[i].y : bond[i].x;
+    unsigned int tag_i = (anchors[i] == 1) ? bond[i].x : bond[i].y;
+    unsigned int tag_j = (anchors[i] == 1) ? bond[i].y : bond[i].x;
     
     unsigned int rtag_i = rtags[tag_i];
     unsigned int nn = nns[rtag_i];
@@ -105,11 +104,12 @@ __global__ void _single_leg_search(
     
     int delta = (int) (new_tag_j - tag_j);
 
-    if ((new_tag_j < N_min) || (new_tag_j >= N_max))
+    if ( (new_tag_j < N_min) || (new_tag_j >= N_max) )
         return;
+
     if (fabsf(delta) > cutoff)
         return;
     
-    bond[i] = is_left_anchor ? make_uint2(tag_i, new_tag_j) : make_uint2(new_tag_j, tag_i);
+    bond[i] = (anchors[i] == 1) ? make_uint2(tag_i, new_tag_j) : make_uint2(new_tag_j, tag_i);
 }
 }
