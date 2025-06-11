@@ -78,7 +78,7 @@ def boltzmann_criterion(system, current_bond_list, trial_bond_list, step_dist=0.
         rng = xp.random.random(N).astype(xp.float64)
         
         rtags = local_snap.particles.rtag._coerce_to_ndarray()
-        positions = local_snap.particles.position._coerce_to_ndarray()        
+        positions = local_snap.particles.position._coerce_to_ndarray()
         positions = positions.astype(xp.float64)
 
         num_blocks = (N+threads_per_block-1) // threads_per_block
