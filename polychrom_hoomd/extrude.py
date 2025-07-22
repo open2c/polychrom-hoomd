@@ -13,7 +13,7 @@ try:
         cuda_module = xp.RawModule(code=cuda_code, options=('--use_fast_math',))
     
     _single_leg_search = cuda_module.get_function('_single_leg_search')
-    _harmonic_boltzmann_filter = cuda_module.get_function('_harmonic_boltzmann_filter')
+    _harmonic_distance_filter = cuda_module.get_function('_harmonic_distance_filter')
 
 except ImportError:
     import numpy as xp
@@ -59,12 +59,17 @@ def update_topology(system, bond_list, local=True, thermalize=False):
         system.state.thermalize_particle_momenta(filter=hoomd.filter.All(), kT=1.0)
 
 
-def boltzmann_criterion(system, current_bond_list, trial_bond_list, step_dist=0.4, rest_dist=0.5, threads_per_block=256):
-    """Apply (3D) Boltzmann criterion to list of attempted (1D) extruder moves, based on harmonic bond potential"""
+def stall_criterion(system, current_bond_list, trial_bond_list, bonded_force_dict, threads_per_block=256):
+    """Apply (3D) tension-based stall criterion to list of attempted (1D) extruder moves, based on harmonic bond potential"""
 
-    mu = xp.float64(rest_dist)
-    sigma2 = xp.float64(step_dist**2) * 2.
+    assert bonded_force_dict["Backbone"]["Type"] == 'Harmonic'
     
+    rest_length = bonded_force_dict["Backbone"]["Rest length"]
+    wiggle_dist = bonded_force_dict["Backbone"]["Wiggle distance"]
+
+    rest_length = xp.float64(rest_length)
+    k_stretch = xp.float64(1./wiggle_dist**2)
+
     hbox = xp.asarray(system.state.box.L, dtype=xp.float64) / 2.
 
     old_bond_array = xp.asarray(current_bond_list, dtype=xp.int32)
@@ -76,17 +81,17 @@ def boltzmann_criterion(system, current_bond_list, trial_bond_list, step_dist=0.
     with system.state.gpu_local_snapshot as local_snap:
         N = int(new_bond_array.shape[0])
         rng = xp.random.random(N).astype(xp.float64)
-        
+
         rtags = local_snap.particles.rtag._coerce_to_ndarray()
         positions = local_snap.particles.position._coerce_to_ndarray()
         positions = positions.astype(xp.float64)
 
         num_blocks = (N+threads_per_block-1) // threads_per_block
             
-        _harmonic_boltzmann_filter(
+        _harmonic_distance_filter(
 			(num_blocks,),
 			(threads_per_block,),
-			(N, mu, sigma2,
+			(N, k_stretch, rest_length,
 			 rng, hbox, positions, rtags,
 			 old_bond_array, new_bond_array)
         )

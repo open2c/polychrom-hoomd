@@ -1,8 +1,8 @@
 extern "C" {
-__global__ void _harmonic_boltzmann_filter(
+__global__ void _harmonic_distance_filter(
         const unsigned int N,
-        const double mu,
-        const double sigma2,
+        const double k_stretch,
+        const double rest_length,
         const double* rng,
         const double* hdims,
         const double* positions,
@@ -21,45 +21,45 @@ __global__ void _harmonic_boltzmann_filter(
     if ( (old_bond[i].x == -1) || (old_bond[i].y == -1) )
         return;
 
-     if ( (new_bond[i].x == -1) || (new_bond[i].y == -1) )
-        return;   
+    if ( (new_bond[i].x == -1) || (new_bond[i].y == -1) )
+        return;
     
     double3* hdim = (double3*) hdims;
     double3* position = (double3*) positions;
     
     bool has_moved_left = (old_bond[i].x != new_bond[i].x);
     bool has_moved_right = (old_bond[i].y != new_bond[i].y);
-
-    if ( has_moved_left || has_moved_right ) {
-        double delta_r2 = 0.;
-        
-        for ( unsigned int j = 0; j < 2; ++j ) {
-            int2 tags = ((j==0) ? old_bond[i] : new_bond[i]);
     
-            unsigned int rtag1 = rtags[tags.x];
-            unsigned int rtag2 = rtags[tags.y];
-			
-            double dx = position[rtag2].x - position[rtag1].x;
-            double dy = position[rtag2].y - position[rtag1].y;
-            double dz = position[rtag2].z - position[rtag1].z;
-			
-            dx -= (copysign(hdim->x, dx-hdim->x) + copysign(hdim->x, dx+hdim->x));
-            dy -= (copysign(hdim->y, dy-hdim->y) + copysign(hdim->y, dy+hdim->y));
-            dz -= (copysign(hdim->z, dz-hdim->z) + copysign(hdim->z, dz+hdim->z));
-
-            double delta_r = sqrt(dx*dx + dy*dy + dz*dz) - mu;
-            delta_r2 += ((j==0) ? delta_r*delta_r : -delta_r*delta_r);
-        }
+    auto harmonic_work = [=](unsigned int& i, unsigned int& j) {
+    
+        double dx = position[j].x - position[i].x;
+        double dy = position[j].y - position[i].y;
+        double dz = position[j].z - position[i].z;
+		
+        dx -= (copysign(hdim->x, dx-hdim->x) + copysign(hdim->x, dx+hdim->x));
+        dy -= (copysign(hdim->y, dy-hdim->y) + copysign(hdim->y, dy+hdim->y));
+        dz -= (copysign(hdim->z, dz-hdim->z) + copysign(hdim->z, dz+hdim->z));
         
-        double boltzmann_weight = exp(delta_r2/sigma2);
+        double step_size = sqrt(dx*dx + dy*dy + dz*dz);
+        double harmonic_force = k_stretch * (step_size - rest_length);
+        
+        return harmonic_force * step_size;
+    };
 
-        if ( rng[i] > boltzmann_weight ) {
-            if ( has_moved_left )
-                new_bond[i].x = old_bond[i].x;
-
-            if ( has_moved_right )
-                new_bond[i].y = old_bond[i].y;
-        }
+    if ( has_moved_left ) {
+        unsigned int rtag1 = rtags[old_bond[i].x];
+        unsigned int rtag2 = rtags[new_bond[i].x];
+        
+        if ( rng[i] > exp(-harmonic_work(rtag1, rtag2)) )
+            new_bond[i].x = old_bond[i].x;
+    }
+    
+    if ( has_moved_right ) {
+        unsigned int rtag1 = rtags[old_bond[i].y];
+        unsigned int rtag2 = rtags[new_bond[i].y];
+        
+        if ( rng[i] > exp(-harmonic_work(rtag1, rtag2)) )
+            new_bond[i].y = old_bond[i].y;
     }
 }
 
