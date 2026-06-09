@@ -178,7 +178,7 @@ def _update_topology_nonlocal(system, bond_array, type_array, type_id, dummy_id)
     snap_gsd.configuration.box = snap.configuration.box
     
     # Load snapshot and re-thermalize, if required
-    snap = hoomd.Snapshot.from_gsd_snapshot(snap_gsd, snap.communicator)
+    snap = hoomd.Snapshot.from_gsd_frame(snap_gsd, snap.communicator)
     
     system.state.set_snapshot(snap)
 

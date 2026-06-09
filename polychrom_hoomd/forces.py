@@ -235,7 +235,7 @@ def get_dihedral_forces(**force_dict):
     
     for force_type in force_types:
         if force_type in ["Harmonic"]:
-            dihedral_force = md.dihedral.Harmonic()
+            dihedral_force = md.dihedral.Periodic()
 
             for dihedral_type, force in force_list.items():
                 if force['Type'] == force_type:
