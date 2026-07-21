@@ -3,7 +3,11 @@ import polychrom_hoomd.utils as utils
 
 from polykit.renderers import backends, viewers
 
-from matplotlib.cm import get_cmap
+try:
+    from matplotlib.cm import get_cmap
+except ImportError:
+    from matplotlib import colormaps
+    get_cmap = lambda x:colormaps[x]
 from matplotlib.colors import Normalize
 
 
